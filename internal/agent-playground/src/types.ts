@@ -39,6 +39,8 @@ export interface ScenarioPreset {
 export interface CandidateResponse {
   id: string;
   label: 'A' | 'B' | 'C';
+  styleLabel?: string;
+  styleDescription?: string;
   outputText: string;
   bannedPhrases: string[];
   autoScores?: ScoreSet;

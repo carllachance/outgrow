@@ -18,6 +18,7 @@ const state = {
   scenarioId: '',
   scenarioText: '',
   candidateCount: 3,
+  regenerateCount: 0,
   candidates: [],
   evaluatorNotes: '',
 };
@@ -58,7 +59,9 @@ function generate() {
   if (!scenario) {
     return;
   }
-  state.candidates = generateCandidates(state.agentType, scenario, state.candidateCount);
+  state.regenerateCount += 1;
+  const seed = `${Date.now()}-${state.regenerateCount}-${Math.random()}`;
+  state.candidates = generateCandidates(state.agentType, scenario, state.candidateCount, seed);
   render();
 }
 
@@ -212,6 +215,7 @@ function render() {
           <h3>Candidate ${candidate.label}</h3>
           ${candidate.preferred ? '<span class="badge">Preferred</span>' : ''}
         </div>
+        <div class="style-tag">${candidate.styleLabel || 'Default'} · ${candidate.styleDescription || 'balanced variation'}</div>
         <p class="response">${candidate.outputText}</p>
         <div class="meta">Quick score: <strong>${scoreSummary(candidate.manualScores)}</strong> / 5</div>
         <div class="flags ${candidate.bannedPhrases.length ? 'warn' : 'ok'}">
