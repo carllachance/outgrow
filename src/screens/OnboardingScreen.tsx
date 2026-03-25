@@ -1,6 +1,7 @@
 import { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/Card';
+import { WelcomeHero } from '../components/brand/WelcomeHero';
 import { useStore } from '../state/AppStoreContext';
 
 export const OnboardingScreen = () => {
@@ -14,8 +15,7 @@ export const OnboardingScreen = () => {
 
   return (
     <div className="screen">
-      <h1>Welcome to Outgrow</h1>
-      <p className="muted">A calm place to build steadier judgment over time.</p>
+      <WelcomeHero />
       <form onSubmit={onSubmit} className="stack">
         <Card title="Long horizon">
           <label>

@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { AppWordmark } from './brand/AppWordmark';
 
 const tabs = [
   { to: '/journal', label: 'Journal' },
@@ -11,6 +12,9 @@ const tabs = [
 export const Layout = () => {
   return (
     <div className="app-shell">
+      <div className="app-shell-header">
+        <AppWordmark compact />
+      </div>
       <main className="content">
         <Outlet />
       </main>

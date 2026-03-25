@@ -12,11 +12,80 @@ body { margin: 0; background: #f7f3ea; }
   margin: 0 auto;
   min-height: 100vh;
   padding-bottom: 74px;
+  background: #f7f3ea;
+}
+
+.app-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 14px 14px 10px;
+  background: rgba(247, 243, 234, 0.92);
+  border-bottom: 1px solid #dce2d3;
+  backdrop-filter: blur(4px);
 }
 
 .content { padding: 12px 14px 28px; }
 .screen h1 { font-size: 1.5rem; margin: 8px 0; }
 .muted { color: #57665d; margin-top: 0; }
+
+.app-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px #cad6c7 inset;
+}
+
+.app-wordmark.compact {
+  gap: 10px;
+}
+
+.app-wordmark.compact .brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.app-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2f4439;
+  letter-spacing: 0.01em;
+}
+
+.app-tag {
+  margin: 2px 0 0;
+  font-size: 0.84rem;
+  color: #657669;
+}
+
+.brand-header {
+  padding: 14px;
+  margin: 4px 0 16px;
+  border-radius: 22px;
+  border: 1px solid #d2decf;
+  background: #f0f4e9;
+}
+
+.brand-header h1 {
+  margin: 14px 0 4px;
+  font-size: 1.7rem;
+  line-height: 1.12;
+  color: #223229;
+}
+
+.header-note {
+  margin: 8px 0 0;
+  color: #5a695f;
+  font-size: 0.94rem;
+}
 
 .card {
   background: #fcf8f0;

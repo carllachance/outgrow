@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card } from '../components/Card';
 import { getHandResponse, getInspireLine } from '../data/mockSupport';
+import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
 export const KindWordsScreen = () => {
@@ -10,8 +11,7 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <h1>Kind Words</h1>
-      <p className="muted">Support without pressure.</p>
+      <BrandHeader title="Kind Words" subtitle="Be kind to yourself." note="Support without pressure." compactMark />
       <Card title="Inspire me">
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
         {inspire ? <p>{inspire}</p> : null}
