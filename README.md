@@ -1,9 +1,28 @@
-# Outgrow
+# Outgrow MVP
 
-## Internal tools
+Mobile-first foundation for the Outgrow app (privacy-first adaptive nutrition support).
 
-### Outgrow Agent Playground
+## Run locally
 
-Open `internal/agent-playground/index.html` in a browser to use the internal-only Agent Playground.
+```bash
+npm install
+npm run dev -- --host
+```
 
-This tool supports side-by-side comparison of deterministic mock candidate responses across Outgrow agent types, with QA scoring, verdicts, notes, preferred selection, and banned phrase scanning.
+Then open the printed local network URL on your phone.
+
+## Routes
+
+- `/onboarding`
+- `/today`
+- `/growth`
+- `/journal`
+- `/privacy`
+- `/kind-words`
+- `/profile`
+
+## Notes
+
+- Data persists in `localStorage` for MVP.
+- AI-like support surfaces are mocked for quick iteration.
+- Existing `internal/agent-playground` remains untouched for internal testing.
