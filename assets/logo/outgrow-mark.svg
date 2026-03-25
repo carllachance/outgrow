@@ -1,0 +1,13 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="outgrowGradient" x1="120" y1="96" x2="392" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7EAA8D"/>
+      <stop offset="0.55" stop-color="#5E8D79"/>
+      <stop offset="1" stop-color="#4B6F8D"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#F7F6F0"/>
+  <path d="M205 120C160 120 126 155 126 201C126 241 149 270 183 300C211 325 231 357 241 394C243 401 253 401 255 394C262 370 262 343 256 319C249 289 234 262 210 237C192 218 183 204 183 188C183 168 197 154 216 154C234 154 246 167 251 186C252 191 259 191 260 186C266 149 241 120 205 120Z" fill="url(#outgrowGradient)"/>
+  <path d="M364 118C312 129 276 167 258 219C241 267 246 328 279 392C281 397 288 396 289 391C294 359 306 335 326 310C350 281 378 257 392 225C409 188 400 139 364 118Z" fill="url(#outgrowGradient)"/>
+  <path d="M282 345C303 302 330 264 365 229" stroke="#F7F6F0" stroke-width="18" stroke-linecap="round"/>
+</svg>
