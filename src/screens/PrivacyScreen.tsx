@@ -1,4 +1,5 @@
 import { Card } from '../components/Card';
+import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
 export const PrivacyScreen = () => {
@@ -6,8 +7,7 @@ export const PrivacyScreen = () => {
 
   return (
     <div className="screen">
-      <h1>Privacy</h1>
-      <p className="muted">We never sell your data. It is encrypted by default and only leaves that seal when you say so.</p>
+      <BrandHeader title="Privacy" subtitle="Be kind to yourself." note="Your reflection stays yours." compactMark />
       <Card title="Controls">
         <label className="toggle"><input type="checkbox" checked={state.privacy.localOnly} onChange={(e) => updatePrivacy({ localOnly: e.target.checked })} /> Local-only storage</label>
         <label className="toggle"><input type="checkbox" checked={state.privacy.anonymousNods} onChange={(e) => updatePrivacy({ anonymousNods: e.target.checked })} /> Anonymous community nods</label>

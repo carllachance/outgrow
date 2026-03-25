@@ -1,23 +1,25 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
+import { ReentryHero } from '../components/brand/ReentryHero';
+import { WelcomeHero } from '../components/brand/WelcomeHero';
 import { useStore } from '../state/AppStoreContext';
 
 export const TodayScreen = () => {
   const { state } = useStore();
+  const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
 
   return (
     <div className="screen">
-      <h1>Today</h1>
-      <p className="muted">Practical, calm support for right now.</p>
+      {hasSetDirection ? <WelcomeHero /> : <ReentryHero />}
       <Card title="Post-intake summary">
         <p>Here&apos;s what I&apos;m hearing: you want this to be workable and steady.</p>
         <p>I&apos;ll support you with lighter nudges as confidence grows. You can adjust support any time.</p>
       </Card>
       <Card title="This week">
-        <p>{state.onboarding.weeklyLens || 'Define what this week looks like in your own words.'}</p>
+        <p>{state.onboarding.weeklyLens || 'Returning is the work. Start where you are today.'}</p>
       </Card>
       <Card title="Current focus">
-        <p>{state.onboarding.currentFocus || 'No specific focus set yet.'}</p>
+        <p>{state.onboarding.currentFocus || 'Showing up counts. Choose one useful thing for today.'}</p>
       </Card>
       <Card title="One or two useful actions">
         <ul>
