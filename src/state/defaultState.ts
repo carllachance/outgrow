@@ -44,5 +44,11 @@ export const defaultState: AppState = {
       wearable_interpretation_enabled: true
     },
     eventLog: []
+  },
+  foodRules: {
+    dietaryDefaults: [],
+    standingOrders: [],
+    ingredientExclusions: [],
+    allergies: []
   }
 };

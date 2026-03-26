@@ -1,5 +1,5 @@
 import { normalizeIngredientAlias } from './derivations.js';
-import type { Recipe, RecipeIngredient, RecipeSuggestionSessionContext } from './types.js';
+import type { FoodRules, Recipe, RecipeIngredient, RecipeSuggestionSessionContext } from './types.js';
 
 const titleCase = (value: string): string => value.split(' ').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
 
@@ -35,10 +35,19 @@ interface RecipeCandidateProfile {
   comfort: boolean;
 }
 
+interface WeeklyMealSignal {
+  id: 'ease' | 'cleanup' | 'comfort' | 'logistics';
+  confidence: number;
+  boost: number;
+  explanation: string;
+}
+
 interface SuggestWithContextInput {
   prompt: string;
   context: RecipeSuggestionContext;
   nowIso?: string;
+  weeklySuccessText?: string;
+  foodRules?: FoodRules;
   feedback?: {
     type: RecipeSuggestionFeedback;
     recipe?: Recipe;
@@ -66,12 +75,31 @@ export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionC
   rejectedSignatures: [],
   positiveExampleSignatures: [],
   preferredTokens: [],
-  avoidedTokens: []
+  avoidedTokens: [],
+  lastSteeringSignals: []
 });
 
 const rotate = <T,>(items: T[], offset: number): T[] => {
   const normalizedOffset = ((offset % items.length) + items.length) % items.length;
   return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
+};
+
+const MEAT_TOKENS = ['chicken', 'turkey', 'beef', 'pork', 'shrimp', 'salmon', 'fish'];
+const GLUTEN_INGREDIENT_KEYS = new Set(['orzo', 'farro', 'wheat', 'barley', 'rye', 'pasta', 'breadcrumbs']);
+const DAIRY_INGREDIENT_KEYS = new Set(['greek_yogurt', 'yogurt', 'milk', 'cream', 'butter', 'parmesan', 'cheese']);
+
+const normalizeRuleToken = (value: string): string => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
+const getHardBlockedTokens = (foodRules?: FoodRules): string[] => {
+  if (!foodRules) return [];
+  const blocked = [
+    ...foodRules.ingredientExclusions.map(normalizeRuleToken),
+    ...foodRules.allergies.map(normalizeRuleToken)
+  ];
+  if (blocked.includes('gluten') || foodRules.dietaryDefaults.includes('gluten_free')) {
+    blocked.push(...Array.from(GLUTEN_INGREDIENT_KEYS));
+  }
+  return arrayUnique(blocked);
 };
 
 const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidateProfile[] => {
@@ -82,7 +110,7 @@ const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidat
 
   const proteins = wantsVegetarian ? ['chickpeas', 'tofu', 'lentils', 'white beans'] : ['chicken breast', 'salmon', 'ground turkey', 'shrimp'];
   const bases = ['rice', 'quinoa', 'orzo', 'farro'];
-  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach'];
+  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach', 'asparagus'];
   const flavors = wantsComfort
     ? ['Creamy Herb', 'Roasted Garlic Yogurt', 'Silky Lemon Dill', 'Parmesan Pepper']
     : wantsSpicy
@@ -123,7 +151,63 @@ const tokenOverlap = (left: string, right: string): number => {
   return intersection / Math.max(leftSet.size, 1);
 };
 
-const buildRecipeFromProfile = (profile: RecipeCandidateProfile, prompt: string, nowIso: string): Recipe => {
+const WEEKLY_MEAL_ANCHORS = /\b(meal|dinner|lunch|breakfast|snack|cook|cooking|kitchen|recipe|grocery|cleanup|dishes|leftover|prep)\b/i;
+
+const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[] => {
+  const trimmed = weeklySuccessText?.trim();
+  if (!trimmed || !WEEKLY_MEAL_ANCHORS.test(trimmed)) return [];
+
+  const text = trimmed.toLowerCase();
+  const signals: WeeklyMealSignal[] = [];
+  const addSignal = (signal: WeeklyMealSignal) => {
+    if (signal.confidence >= 0.5) signals.push(signal);
+  };
+
+  if (/\b(easy|simple|low effort|low-energy|minimal effort|no fuss)\b/.test(text)) {
+    addSignal({
+      id: 'ease',
+      confidence: 0.72,
+      boost: 0.8,
+      explanation: 'Weekly success text mentions ease/low effort, so quicker formats get a small boost.'
+    });
+  }
+
+  if (/\b(cleanup|clean-up|dishes|fewer pans|one pan|one-pot|one pot|sheet pan)\b/.test(text)) {
+    addSignal({
+      id: 'cleanup',
+      confidence: 0.78,
+      boost: 0.9,
+      explanation: 'Weekly success text mentions cleanup, so one-pot/sheet-pan style gets a small boost.'
+    });
+  }
+
+  if (/\b(comfort|cozy|soothing|warm|grounding)\b/.test(text)) {
+    addSignal({
+      id: 'comfort',
+      confidence: 0.75,
+      boost: 0.85,
+      explanation: 'Weekly success text mentions comfort, so cozy flavor profiles get a small boost.'
+    });
+  }
+
+  if (/\b(logistics|leftovers|plan ahead|batch|meal prep|prep ahead|repeatable|weeknight)\b/.test(text)) {
+    addSignal({
+      id: 'logistics',
+      confidence: 0.68,
+      boost: 0.75,
+      explanation: 'Weekly success text mentions logistics/leftovers, so repeatable batch-friendly options get a small boost.'
+    });
+  }
+
+  return signals;
+};
+
+const buildRecipeFromProfile = (
+  profile: RecipeCandidateProfile,
+  prompt: string,
+  nowIso: string,
+  options?: { foodRules?: FoodRules; blockedTokens?: string[] }
+): Recipe => {
   const totalTimeMin = profile.quickTag === 'quick' ? 25 : 40;
   const cookTimeMin = profile.quickTag === 'quick' ? 18 : 30;
 
@@ -136,6 +220,14 @@ const buildRecipeFromProfile = (profile: RecipeCandidateProfile, prompt: string,
     { name: profile.veg, quantity: 1, unit: 'cup' },
     { name: profile.base, quantity: 1, unit: 'cup' }
   ];
+  const dairyLight = options?.foodRules?.dietaryDefaults.includes('dairy_light');
+  const blocked = new Set(options?.blockedTokens ?? []);
+  const filteredTemplates = templates.filter((template) => {
+    const key = normalizeRuleToken(template.name);
+    if (blocked.has(key)) return false;
+    if (dairyLight && DAIRY_INGREDIENT_KEYS.has(key)) return false;
+    return true;
+  });
 
   return {
     id: `recipe-${crypto.randomUUID()}`,
@@ -148,7 +240,7 @@ const buildRecipeFromProfile = (profile: RecipeCandidateProfile, prompt: string,
     prepTimeMin: totalTimeMin - cookTimeMin,
     cookTimeMin,
     totalTimeMin,
-    ingredients: templates.map(createIngredient),
+    ingredients: filteredTemplates.map(createIngredient),
     instructions: [
       { step: 1, text: `Prep ${profile.veg}, aromatics, and ${profile.protein}.` },
       { step: 2, text: `Cook ${profile.base} while you start a ${profile.method.toLowerCase()} workflow.` },
@@ -161,20 +253,78 @@ const buildRecipeFromProfile = (profile: RecipeCandidateProfile, prompt: string,
   };
 };
 
-const chooseCandidate = (pool: RecipeCandidateProfile[], context: RecipeSuggestionContext, targetSimilarityTo?: string): RecipeCandidateProfile => {
+const profileViolatesHardRules = (profile: RecipeCandidateProfile, blockedTokens: string[]): boolean => {
+  const parts = [profile.protein, profile.base, profile.veg, profile.flavor, profile.method].map(normalizeRuleToken);
+  return blockedTokens.some((token) => parts.some((part) => part.includes(token) || token.includes(part)));
+};
+
+const profileStandingOrderScore = (profile: RecipeCandidateProfile, foodRules: FoodRules, promptTokens: string[]): number => {
+  let score = 0;
+  const promptHasMeatRequest = hasAnyToken(promptTokens, MEAT_TOKENS);
+
+  if (foodRules.dietaryDefaults.includes('vegetarian') && !promptHasMeatRequest) {
+    if (['chickpeas', 'tofu', 'lentils', 'white beans'].includes(profile.protein)) score += 0.9;
+    if (MEAT_TOKENS.includes(profile.protein)) score -= 0.7;
+  }
+
+  if (foodRules.dietaryDefaults.includes('gluten_free')) {
+    if (GLUTEN_INGREDIENT_KEYS.has(normalizeRuleToken(profile.base))) score -= 1;
+    if (['rice', 'quinoa'].includes(profile.base)) score += 0.6;
+  }
+
+  const standingTokens = foodRules.standingOrders.flatMap((order) => tokenizePrompt(order));
+  for (const token of standingTokens) {
+    if ([profile.protein, profile.base, profile.veg, profile.method, profile.flavor].some((part) => normalizeRuleToken(part).includes(token))) {
+      score += 0.25;
+    }
+  }
+
+  return score;
+};
+
+const weeklySignalScore = (candidate: RecipeCandidateProfile, signals: WeeklyMealSignal[]): number => {
+  if (!signals.length) return 0;
+
+  return signals.reduce((score, signal) => {
+    if (signal.id === 'ease' && (candidate.quickTag === 'quick' || candidate.method === 'One Pot' || candidate.method === 'Sheet Pan')) return score + signal.boost;
+    if (signal.id === 'cleanup' && (candidate.method === 'One Pot' || candidate.method === 'Sheet Pan' || candidate.method === 'Skillet')) return score + signal.boost;
+    if (signal.id === 'comfort' && candidate.comfort) return score + signal.boost;
+    if (signal.id === 'logistics' && (candidate.quickTag === 'batch-cook' || candidate.method === 'One Pot' || candidate.base === 'rice' || candidate.base === 'farro')) return score + signal.boost;
+    return score;
+  }, 0);
+};
+
+const chooseCandidate = (
+  pool: RecipeCandidateProfile[],
+  context: RecipeSuggestionContext,
+  options?: {
+    targetSimilarityTo?: string;
+    weeklySignals?: WeeklyMealSignal[];
+    weeklyInfluenceScale?: number;
+    foodRules?: FoodRules;
+    blockedTokens?: string[];
+    promptTokens?: string[];
+  }
+): RecipeCandidateProfile => {
   const scored = pool.map((candidate, index) => {
     const signature = signatureFromProfile(candidate);
     const isRejected = context.rejectedSignatures.includes(signature);
     const wasRecent = context.recentSuggestionSignatures.includes(signature);
     const preferredBoost = context.preferredTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0), 0);
     const avoidedPenalty = context.avoidedTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0), 0);
-    const similarityScore = targetSimilarityTo ? tokenOverlap(signature, targetSimilarityTo) : 0;
-    const nearDuplicatePenalty = targetSimilarityTo && similarityScore >= 0.95 ? 3 : 0;
+    const similarityScore = options?.targetSimilarityTo ? tokenOverlap(signature, options.targetSimilarityTo) : 0;
+    const nearDuplicatePenalty = options?.targetSimilarityTo && similarityScore >= 0.95 ? 3 : 0;
+    const weeklyScore = weeklySignalScore(candidate, options?.weeklySignals ?? []) * (options?.weeklyInfluenceScale ?? 0);
+    const standingOrderScore = options?.foodRules
+      ? profileStandingOrderScore(candidate, options.foodRules, options.promptTokens ?? [])
+      : 0;
+    const hardBlocked = profileViolatesHardRules(candidate, options?.blockedTokens ?? []);
 
-    let score = preferredBoost - avoidedPenalty + similarityScore;
+    let score = preferredBoost - avoidedPenalty + similarityScore + weeklyScore + standingOrderScore;
     if (isRejected) score -= 5;
     if (wasRecent) score -= 8;
     score -= nearDuplicatePenalty;
+    if (hardBlocked) score -= 100;
 
     return { candidate, signature, score, index };
   });
@@ -212,18 +362,32 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     baselineContext.preferredTokens = arrayUnique([...baselineContext.preferredTokens, ...feedbackRecipeSignature.split('|')]);
   }
 
+  const weeklySignals = extractWeeklyMealSignals(input.weeklySuccessText);
+  const weeklyInfluenceScale = input.feedback ? 0.2 : 0.35;
   const tokens = tokenizePrompt(input.prompt);
+  const blockedTokens = getHardBlockedTokens(input.foodRules);
   const pool = buildCandidatePool(tokens, baselineContext.iterations);
   const similarityTarget = input.feedback?.type === 'more_like_this' ? feedbackRecipeSignature : baselineContext.positiveExampleSignatures[baselineContext.positiveExampleSignatures.length - 1];
-  const candidate = chooseCandidate(pool, baselineContext, similarityTarget);
-  const recipe = buildRecipeFromProfile(candidate, input.prompt, nowIso);
+  const candidate = chooseCandidate(pool, baselineContext, {
+    targetSimilarityTo: similarityTarget,
+    weeklySignals,
+    weeklyInfluenceScale,
+    foodRules: input.foodRules,
+    blockedTokens,
+    promptTokens: tokens
+  });
+  const recipe = buildRecipeFromProfile(candidate, input.prompt, nowIso, {
+    foodRules: input.foodRules,
+    blockedTokens
+  });
   const generatedSignature = signatureFromProfile(candidate);
 
   const nextContext: RecipeSuggestionContext = {
     ...baselineContext,
     promptSignature: nextPromptSignature,
     iterations: baselineContext.iterations + 1,
-    recentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.recentSuggestionSignatures]).slice(0, 8)
+    recentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.recentSuggestionSignatures]).slice(0, 8),
+    lastSteeringSignals: weeklySignals.map((signal) => signal.explanation).slice(0, 2)
   };
 
   return { recipe, context: nextContext };
