@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "tsc -p tsconfig.tests.json && node -e \"require('fs').writeFileSync('.tmp-tests/package.json', JSON.stringify({type:'commonjs'}))\" && node .tmp-tests/tests/safetyState.runtime.test.js"
   },
   "dependencies": {
     "react": "^18.3.1",
