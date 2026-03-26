@@ -18,7 +18,10 @@
     "src/data/purposeIntegrity.ts",
     "src/data/safetyRuntimePolicy.ts",
     "src/state/defaultState.ts",
+    "src/state/hydrateState.ts",
+    "src/state/mealLogSummary.ts",
     "src/state/safetyState.ts",
-    "tests/safetyState.runtime.test.ts"
+    "tests/safetyState.runtime.test.ts",
+    "tests/mealLogging.runtime.test.ts"
   ]
 }

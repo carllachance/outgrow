@@ -14,6 +14,7 @@ export const defaultState: AppState = {
     supportTier: 'Active'
   },
   journalEntries: [],
+  mealLogs: [],
   weeklyReflections: [],
   returnMoments: [],
   privacy: {
