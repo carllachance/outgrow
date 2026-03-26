@@ -16,12 +16,11 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <BrandHeader title="Be kind to yourself" subtitle="Be kind to yourself." note="Support without pressure." />
-      <Card title="Inspire me">
+      <BrandHeader title="Be kind to yourself" note="Support without pressure." />
+      <Card>
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
         {inspire ? (
           <div className="generated-output" role="status" aria-live="polite">
-            <p className="generated-output-label">Surfaced message</p>
             <p className="generated-output-copy">{inspire}</p>
           </div>
         ) : null}
