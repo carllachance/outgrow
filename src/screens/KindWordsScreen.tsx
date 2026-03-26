@@ -7,6 +7,7 @@ import type { CommunityCategory } from '../types';
 
 export const KindWordsScreen = () => {
   const { state, addKindWord, addCommunityShare, flagCommunityShare } = useStore();
+  const isSafetyMode = !state.safety.flags.community_posting_enabled;
   const [inspire, setInspire] = useState('');
   const [request, setRequest] = useState('');
   const [communityPost, setCommunityPost] = useState('');
@@ -18,6 +19,7 @@ export const KindWordsScreen = () => {
     <div className="screen">
       <BrandHeader title="Be kind to yourself" note="Support without pressure." />
       <Card>
+        <p className="muted">Generated support is guidance, not medical advice.</p>
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
         {inspire ? (
           <div className="generated-output" role="status" aria-live="polite">
@@ -28,6 +30,7 @@ export const KindWordsScreen = () => {
       <Card title="What feels hard right now">
         <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="What do you need help with right now?" />
         <button
+          disabled={state.safety.mode === 'prolonged_safe_mode' || !state.safety.flags.adaptive_coaching_enabled}
           type="button"
           onClick={() => {
             const trimmed = request.trim();
@@ -45,8 +48,14 @@ export const KindWordsScreen = () => {
           I could use a hand
         </button>
         {handMessage ? <p>{handMessage}</p> : null}
+        {state.safety.mode === 'prolonged_safe_mode' ? <p>Support stays in low-intensity mode right now. Keep requests short and gentle.</p> : null}
       </Card>
       <Card title="Anonymous community shares">
+        {isSafetyMode ? (
+          <p className="muted">Community posting is paused while safety mode is active.</p>
+        ) : (
+          <>
+        <p className="muted">All submissions are screened before publish and may be blocked when risk is uncertain.</p>
         <p className="muted">Share short authored notes to encourage others. Posts are screened before publish.</p>
         <label>
           Category
@@ -76,16 +85,18 @@ export const KindWordsScreen = () => {
           Share anonymously
         </button>
         {publishMessage ? <p>{publishMessage}</p> : null}
+          </>
+        )}
       </Card>
       <Card title="Community board">
-        {state.communityShares.filter((share) => !share.isFlagged).slice(0, 8).map((share) => (
+        {isSafetyMode ? <p>Community board is hidden in safety mode.</p> : state.communityShares.filter((share) => !share.isFlagged).slice(0, 8).map((share) => (
           <div key={share.id} className="community-item">
             <p><strong>{share.category}</strong> · {new Date(share.date).toLocaleDateString()}</p>
             <p>{share.content}</p>
             <button type="button" onClick={() => flagCommunityShare(share.id)}>Report / remove</button>
           </div>
         ))}
-        {!state.communityShares.some((share) => !share.isFlagged) ? <p>No shared notes yet.</p> : null}
+        {!isSafetyMode && !state.communityShares.some((share) => !share.isFlagged) ? <p>No shared notes yet.</p> : null}
       </Card>
     </div>
   );

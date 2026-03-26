@@ -3,6 +3,8 @@ import { useStore } from '../state/AppStoreContext';
 
 export const GrowthScreen = () => {
   const { state, addReturnMoment } = useStore();
+  const isSafetyMode = !state.safety.flags.tracking_enabled;
+  const progressHiddenMessage = 'Progress is temporarily hidden while safety mode is active.';
 
   return (
     <div className="screen">
@@ -15,8 +17,8 @@ export const GrowthScreen = () => {
         <p>The pace can change without progress disappearing. Hard weeks still count.</p>
       </Card>
       <Card title="Moments of return">
-        <button onClick={() => addReturnMoment('I came back today and made one workable choice.')}>Log a return moment</button>
-        {state.returnMoments.slice(0, 4).map((moment) => (
+        <button disabled={isSafetyMode} onClick={() => addReturnMoment('I came back today and made one workable choice.')}>Log a return moment</button>
+        {isSafetyMode ? <p>{progressHiddenMessage}</p> : state.returnMoments.slice(0, 4).map((moment) => (
           <p key={moment.id}>{new Date(moment.date).toLocaleDateString()}: {moment.note}</p>
         ))}
       </Card>

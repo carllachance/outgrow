@@ -1,4 +1,5 @@
-import { classifyHealthRisk, runPostGenerationSafetyCheck, type RiskCategory } from './purposeIntegrity';
+import { classifyHealthRisk, detectSafetyTier, runPostGenerationSafetyCheck, type RiskCategory } from './purposeIntegrity';
+import { OUTGROW_AGENT_RESPONSE_CHECKLIST } from './agentInstructionPrompt';
 
 const inspireLines = [
   'The pace can change without the progress disappearing.',
@@ -31,6 +32,27 @@ const APPROVED_REDIRECT_TEMPLATES: Record<RiskCategory, string> = {
 export const getInspireLine = () => inspireLines[Math.floor(Math.random() * inspireLines.length)];
 
 export const getHandResponse = (request: string) => {
+  const tier = detectSafetyTier(request);
+  if (tier >= 3) {
+    return {
+      response:
+        'I can’t help with tracking or optimization right now. Let’s keep this to immediate safety and support: pause, breathe, and reach out to a trusted person or local crisis support if you might be in danger.',
+      mode: 'supportive_redirective' as const,
+      classification: classifyHealthRisk(request),
+      checklist: OUTGROW_AGENT_RESPONSE_CHECKLIST
+    };
+  }
+
+  if (tier === 2) {
+    return {
+      response:
+        'I’m not going to intensify this. Let’s keep it simple: choose one grounding step (water, a regular meal, or a short pause) and step back from detailed tracking for now.',
+      mode: 'supportive_redirective' as const,
+      classification: classifyHealthRisk(request),
+      checklist: OUTGROW_AGENT_RESPONSE_CHECKLIST
+    };
+  }
+
   const classification = classifyHealthRisk(request);
   const candidate =
     classification.requiresConstrainedPolicy || classification.riskLevel !== 'low'
@@ -43,7 +65,8 @@ export const getHandResponse = (request: string) => {
       response:
         'I want to keep this safe and kind. Let’s pause and choose one supportive next step you can do in the next hour.',
       mode: 'supportive_redirective' as const,
-      classification
+      classification,
+      checklist: OUTGROW_AGENT_RESPONSE_CHECKLIST
     };
   }
 
@@ -51,6 +74,7 @@ export const getHandResponse = (request: string) => {
     response: candidate,
     mode:
       classification.riskLevel === 'low' ? ('normal' as const) : ('supportive_redirective' as const),
-    classification
+    classification,
+    checklist: OUTGROW_AGENT_RESPONSE_CHECKLIST
   };
 };
