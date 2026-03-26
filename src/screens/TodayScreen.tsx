@@ -4,13 +4,6 @@ import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
-type DailyWin = {
-  id: string;
-  label: string;
-  ctaLabel: string;
-  ctaTo: string;
-};
-
 type StretchGoal = {
   id: string;
   kind: 'simple' | 'input';
@@ -20,41 +13,37 @@ type StretchGoal = {
 };
 
 export const TodayScreen = () => {
-  const { state, addReturnMoment } = useStore();
+  const { state, addReturnMoment, saveTodaySuccess } = useStore();
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
-  const [selectedWinId, setSelectedWinId] = useState('steady-meal');
-  const [showWinPicker, setShowWinPicker] = useState(false);
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
   const [completedStretch, setCompletedStretch] = useState<string[]>([]);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
+  const [todaySuccessMessage, setTodaySuccessMessage] = useState('');
+
+  const todayDateKey = new Date().toISOString().slice(0, 10);
+  const savedTodaySuccess = state.todaySuccessByDate[todayDateKey] ?? '';
+  const [todaySuccessDraft, setTodaySuccessDraft] = useState(savedTodaySuccess);
 
   const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work.';
   const currentFocus = state.onboarding.currentFocus || 'Keep it honest and doable.';
 
-  const dailyWins = useMemo<DailyWin[]>(
-    () => [
-      {
-        id: 'steady-meal',
-        label: 'Eat one steady meal without multitasking.',
-        ctaLabel: 'Log your next meal intention',
-        ctaTo: '/meals',
-      },
-      {
-        id: 'ten-minute-reset',
-        label: 'Take a 10-minute reset walk and breathe.',
-        ctaLabel: 'Capture a quick check-in',
-        ctaTo: '/journal',
-      },
-      {
-        id: 'close-one-loop',
-        label: 'Close one open loop you have been avoiding.',
-        ctaLabel: 'Name the one thing in Journal',
-        ctaTo: '/journal',
-      },
-    ],
-    [],
+  const recentWin = state.returnMoments[0]?.note.replace(/^Tonight note:\s*/i, '');
+  const recentJournalTheme = state.journalEntries[0]?.content;
+  const hour = new Date().getHours();
+  const timeOfDayHint = hour < 12 ? 'this morning' : hour < 18 ? 'this afternoon' : 'tonight';
+
+  const suggestionChips = useMemo(
+    () =>
+      [
+        `Keep one promise to myself ${timeOfDayHint}.`,
+        recentWin ? `Build on yesterday: ${recentWin.slice(0, 46)}${recentWin.length > 46 ? '…' : ''}` : '',
+        recentJournalTheme
+          ? `Finish one doable step from: ${recentJournalTheme.slice(0, 40)}${recentJournalTheme.length > 40 ? '…' : ''}`
+          : '',
+      ].filter(Boolean),
+    [recentJournalTheme, recentWin, timeOfDayHint],
   );
 
   const stretchGoals = useMemo<StretchGoal[]>(
@@ -82,12 +71,15 @@ export const TodayScreen = () => {
     [],
   );
 
-  const selectedWin = dailyWins.find((win) => win.id === selectedWinId) ?? dailyWins[0];
-
   const toggleStretchComplete = (goalId: string) => {
     setCompletedStretch((existing) =>
       existing.includes(goalId) ? existing.filter((id) => id !== goalId) : [...existing, goalId],
     );
+  };
+
+  const saveTodaySuccessDraft = () => {
+    const result = saveTodaySuccess(todayDateKey, todaySuccessDraft);
+    setTodaySuccessMessage(result || 'Saved your definition of success for today.');
   };
 
   const saveTonightNote = () => {
@@ -120,39 +112,47 @@ export const TodayScreen = () => {
       <section className="atmospheric-panel today-primary" aria-labelledby="today-success-title">
         <p className="panel-kicker">Today</p>
         <h2 id="today-success-title" className="panel-title">Today, success looks like…</h2>
-        <p className="today-win-statement">{selectedWin.label}</p>
+        <label htmlFor="today-success-input" className="sr-only">Your success definition for today</label>
+        <textarea
+          id="today-success-input"
+          className="today-success-input"
+          value={todaySuccessDraft}
+          onChange={(event) => {
+            setTodaySuccessDraft(event.target.value);
+            setTodaySuccessMessage('');
+          }}
+          rows={2}
+          placeholder="Example: Finish my top priority by lunch and eat one grounded meal."
+        />
 
-        <div className="inline-actions today-primary-actions">
-          <Link className="button-link primary-cta" to={selectedWin.ctaTo}>
-            {selectedWin.ctaLabel}
-          </Link>
-          <button
-            type="button"
-            className="action-expand today-change-win"
-            onClick={() => setShowWinPicker((existing) => !existing)}
-          >
-            {showWinPicker ? 'Hide other win options' : 'Choose a different today win'}
-          </button>
-        </div>
-
-        {showWinPicker ? (
-          <div className="choices today-win-choices" role="list" aria-label="Today win options">
-            {dailyWins.map((win) => (
+        {suggestionChips.length ? (
+          <div className="chip-row" aria-label="Optional suggestions">
+            {suggestionChips.map((suggestion) => (
               <button
-                key={win.id}
+                key={suggestion}
                 type="button"
-                role="listitem"
-                className={`choice-chip${selectedWinId === win.id ? ' active' : ''}`}
+                className="chip-button"
                 onClick={() => {
-                  setSelectedWinId(win.id);
-                  setShowWinPicker(false);
+                  setTodaySuccessDraft(suggestion);
+                  setTodaySuccessMessage('');
                 }}
               >
-                {win.label}
+                {suggestion}
               </button>
             ))}
           </div>
         ) : null}
+
+        <div className="inline-actions today-primary-actions">
+          <button type="button" className="button-link primary-cta" onClick={saveTodaySuccessDraft}>
+            Save today’s success
+          </button>
+          <Link className="button-link" to="/journal">
+            Plan this in Journal
+          </Link>
+        </div>
+
+        {todaySuccessMessage ? <p className="panel-copy panel-copy-support">{todaySuccessMessage}</p> : null}
 
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>

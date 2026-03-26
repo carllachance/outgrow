@@ -68,6 +68,18 @@ export const useAppStore = () => {
       updateOnboarding: (partial: Partial<AppState['onboarding']>) => {
         persist({ ...state, onboarding: { ...state.onboarding, ...partial } });
       },
+      saveTodaySuccess: (date: string, statement: string) => {
+        const trimmedStatement = statement.trim();
+        if (!trimmedStatement) return 'Write your own success definition before saving.';
+        persist({
+          ...state,
+          todaySuccessByDate: {
+            ...state.todaySuccessByDate,
+            [date]: trimmedStatement
+          }
+        });
+        return '';
+      },
       updateProfile: (name: string, pronouns: string) => {
         persist({ ...state, profile: { name, pronouns } });
       },

@@ -13,6 +13,7 @@ export const defaultState: AppState = {
     expectedTimeline: '',
     supportTier: 'Active'
   },
+  todaySuccessByDate: {},
   journalEntries: [],
   mealLogs: [],
   weeklyReflections: [],

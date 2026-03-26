@@ -72,6 +72,10 @@ export const hydrateAppState = (raw: string | null): AppState => {
     const parsed = { ...defaultState, ...JSON.parse(raw) } as AppState;
     return {
       ...parsed,
+      todaySuccessByDate:
+        parsed.todaySuccessByDate && typeof parsed.todaySuccessByDate === 'object'
+          ? parsed.todaySuccessByDate
+          : {},
       mealLogs: Array.isArray(parsed.mealLogs) ? parsed.mealLogs.map(sanitizeMealLog).filter(Boolean) as MealLogEntry[] : [],
       safety: {
         ...defaultState.safety,

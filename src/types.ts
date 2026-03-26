@@ -139,6 +139,7 @@ export interface InsightSupportLink {
 export interface AppState {
   profile: UserProfile;
   onboarding: OnboardingState;
+  todaySuccessByDate: Record<string, string>;
   journalEntries: JournalEntry[];
   mealLogs: MealLogEntry[];
   weeklyReflections: Reflection[];
