@@ -13,7 +13,7 @@ export const PrivacyScreen = () => {
 
       <section className="chapter" aria-labelledby="privacy-controls-title">
         <p className="panel-kicker">Controls</p>
-        <h2 id="privacy-controls-title">Set your boundary.</h2>
+        <h2 id="privacy-controls-title">Set your boundary and lock preferences.</h2>
         <label className="toggle">
           <input type="checkbox" checked={state.privacy.localOnly} onChange={(e) => updatePrivacy({ localOnly: e.target.checked })} />
           Local-only storage

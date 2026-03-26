@@ -9,12 +9,16 @@ export const JournalScreen = () => {
   const [didntHold, setDidntHold] = useState('');
   const [change, setChange] = useState('');
   const [adapt, setAdapt] = useState('');
+  const [integrityMessage, setIntegrityMessage] = useState('');
 
   const submitEntry = (event: FormEvent) => {
     event.preventDefault();
     if (!entry.trim()) return;
-    addJournalEntry({ type: 'freeform', content: entry });
-    setEntry('');
+    const integrityMessageFromStore = addJournalEntry({ type: 'freeform', content: entry });
+    setIntegrityMessage(integrityMessageFromStore);
+    if (!integrityMessageFromStore.includes('not punishment')) {
+      setEntry('');
+    }
   };
 
   const submitReflection = (event: FormEvent) => {
@@ -29,12 +33,14 @@ export const JournalScreen = () => {
   return (
     <div className="screen">
       <h1>Journal</h1>
-      <p className="muted">Freeform reflections and weekly adjustment.</p>
+      <p className="muted">Freeform reflections for hard days, good days, and everything in between.</p>
       <Card title="Freeform journaling">
+        <p className="muted">Try: Write what&apos;s on your mind, what brings you joy, or brag about yourself.</p>
         <form onSubmit={submitEntry}>
-          <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="Write what today felt like." />
+          <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="Write what's on your mind." />
           <button type="submit">Save reflection</button>
         </form>
+        {integrityMessage ? <p>{integrityMessage}</p> : null}
       </Card>
       <Card title="Weekly reflection">
         <form onSubmit={submitReflection} className="stack compact">

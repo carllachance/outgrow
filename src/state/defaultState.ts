@@ -22,7 +22,7 @@ export const defaultState: AppState = {
     biometricLock: false
   },
   kindWords: [],
-  anonymousNodCount: 0,
+  communityShares: [],
   safety: {
     isPaused: false,
     reason: ''

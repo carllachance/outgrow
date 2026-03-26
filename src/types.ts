@@ -48,6 +48,21 @@ export interface KindWordEntry {
   response: string;
 }
 
+export type CommunityCategory =
+  | 'small win'
+  | 'kind reminder'
+  | 'what helped today'
+  | 'gentle encouragement';
+
+export interface CommunityShare {
+  id: string;
+  date: string;
+  category: CommunityCategory;
+  content: string;
+  authorLabel: string;
+  isFlagged: boolean;
+}
+
 export interface SafetyState {
   isPaused: boolean;
   reason: string;
@@ -61,6 +76,6 @@ export interface AppState {
   returnMoments: ReturnMoment[];
   privacy: PrivacySettings;
   kindWords: KindWordEntry[];
-  anonymousNodCount: number;
+  communityShares: CommunityShare[];
   safety: SafetyState;
 }

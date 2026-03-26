@@ -184,6 +184,15 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   background: rgba(238, 228, 208, 0.72);
 }
 
+.community-item {
+  padding: 14px 0;
+  border-top: 1px solid rgba(166, 151, 123, 0.24);
+}
+
+.community-item p {
+  margin: 0 0 8px;
+}
+
 .toggle {
   display: flex;
   align-items: center;
