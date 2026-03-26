@@ -163,3 +163,92 @@ button { background: #dbe8d7; color: #213129; font-weight: 600; }
 }
 
 .toggle input { width: auto; margin: 0; }
+
+.today-screen {
+  display: grid;
+  gap: 16px;
+}
+
+.today-card {
+  margin: 0;
+  border: 1px solid #d8dfd6;
+  color: #29372f;
+}
+
+.today-card h2,
+.today-card h3 {
+  margin: 4px 0 10px;
+  line-height: 1.2;
+  color: #24332b;
+}
+
+.today-card p {
+  margin: 0 0 10px;
+}
+
+.today-card p:last-child {
+  margin-bottom: 0;
+}
+
+.today-kicker {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b786f;
+}
+
+.today-card-hero {
+  padding: 18px;
+  border-radius: 28px 28px 16px 16px;
+  background: linear-gradient(160deg, #eef4e4 0%, #f8f2e8 62%, #fbf6ee 100%);
+  box-shadow: 0 10px 22px rgba(58, 78, 66, 0.12);
+}
+
+.today-card-hero h2 {
+  font-size: 1.2rem;
+}
+
+.today-card-weekly {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f8f0e6;
+  border-left: 4px solid #c8b094;
+}
+
+.today-card-focus {
+  padding: 18px;
+  border-radius: 24px;
+  background: #f3f6ec;
+  border-style: dashed;
+}
+
+.today-card-action {
+  padding: 14px 16px;
+  border-radius: 12px 24px 24px 12px;
+  background: #fffaf1;
+}
+
+.today-card-action ul {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.today-card-rhythm {
+  padding: 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f8f5ec 0%, #f0f4eb 100%);
+}
+
+.today-card-kind {
+  padding: 18px;
+  border-radius: 26px 14px 22px;
+  background: #f4efe4;
+  margin-bottom: 6px;
+}
+
+.today-actions {
+  margin-top: 14px;
+}
