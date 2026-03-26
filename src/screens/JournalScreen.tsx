@@ -1,6 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
+import { Link } from 'react-router-dom';
+import { buildDayContexts } from '../state/insightProvenance';
 
 export const JournalScreen = () => {
   const { state, addJournalEntry, addReflection } = useStore();
@@ -10,6 +12,7 @@ export const JournalScreen = () => {
   const [change, setChange] = useState('');
   const [adapt, setAdapt] = useState('');
   const [integrityMessage, setIntegrityMessage] = useState('');
+  const recentDays = buildDayContexts(state).slice(0, 5);
 
   const submitEntry = (event: FormEvent) => {
     event.preventDefault();
@@ -51,9 +54,13 @@ export const JournalScreen = () => {
           <button type="submit">Save weekly reflection</button>
         </form>
       </Card>
-      <Card title="Recent entries">
-        {!state.safety.flags.progress_visible ? <p>Past entries are hidden while safety mode is active.</p> : state.journalEntries.slice(0, 5).map((item) => (
-          <p key={item.id}>{new Date(item.date).toLocaleDateString()} — {item.content}</p>
+      <Card title="Recent days">
+        {!state.safety.flags.progress_visible ? <p>Past entries are hidden while safety mode is active.</p> : recentDays.length === 0 ? <p>No days logged yet. Your next entry will appear here.</p> : recentDays.map((day) => (
+          <Link key={day.dayId} to={`/days/${day.dayId}?source=recent-days`} className="day-row-link">
+            <span className="day-row-date">{new Date(`${day.dayId}T12:00:00`).toLocaleDateString()}</span>
+            <span className="day-row-preview">{day.preview}</span>
+            <span className="day-row-chevron" aria-hidden="true">›</span>
+          </Link>
         ))}
       </Card>
     </div>

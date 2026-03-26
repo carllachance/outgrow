@@ -441,3 +441,96 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 .meal-log-item p {
   margin: 0 0 8px;
 }
+
+.day-row-link {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 14px 34px 14px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(166, 151, 123, 0.35);
+  background: rgba(255, 252, 247, 0.8);
+  text-decoration: none;
+}
+
+.day-row-link:active {
+  background: rgba(234, 223, 199, 0.76);
+}
+
+.day-row-date {
+  font-weight: 700;
+  color: #2d352c;
+}
+
+.day-row-preview {
+  color: #576159;
+  line-height: 1.5;
+  font-size: 0.93rem;
+}
+
+.day-row-chevron {
+  position: absolute;
+  right: 14px;
+  top: 16px;
+  color: #616a62;
+  font-size: 1.2rem;
+}
+
+.insight-card {
+  border: 1px solid rgba(166, 151, 123, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.72);
+  padding: 14px;
+}
+
+.insight-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.insight-card p {
+  margin: 0 0 10px;
+}
+
+.reason-badge {
+  display: inline-block;
+  margin-top: 2px;
+  color: #4f5a52;
+  font-size: 0.82rem;
+}
+
+.day-detail-screen {
+  gap: 22px;
+}
+
+.day-detail-header {
+  position: sticky;
+  top: 70px;
+  z-index: 2;
+  padding: 10px 0 8px;
+  background: linear-gradient(180deg, rgba(247, 241, 230, 0.98) 0%, rgba(247, 241, 230, 0.85) 80%, rgba(247, 241, 230, 0) 100%);
+}
+
+.day-detail-back {
+  width: auto;
+  margin: 0 0 8px;
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.origin-badge {
+  display: inline-block;
+  margin: 6px 0 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(228, 218, 200, 0.72);
+  color: #3f4942;
+  font-size: 0.8rem;
+}
+
+.authored-item,
+.observed-card {
+  border-top: 1px solid rgba(166, 151, 123, 0.24);
+  padding-top: 10px;
+}

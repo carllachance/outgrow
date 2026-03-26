@@ -24,6 +24,7 @@ export const defaultState: AppState = {
   },
   kindWords: [],
   communityShares: [],
+  insightSupportLinks: [],
   safety: {
     isPaused: false,
     reason: '',

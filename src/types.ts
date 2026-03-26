@@ -117,6 +117,25 @@ export interface SafetyState {
   }>;
 }
 
+export type InsightSupportStrength = 'high' | 'medium' | 'low';
+export type InsightSupportFactor =
+  | 'low_sleep'
+  | 'late_snack'
+  | 'high_activity'
+  | 'positive_entry_tone'
+  | 'early_lunch'
+  | 'high_stress';
+
+export interface InsightSupportLink {
+  id: string;
+  insightId: string;
+  dayId: string;
+  supportStrength: InsightSupportStrength;
+  factors: InsightSupportFactor[];
+  explanation?: string;
+  createdAt: string;
+}
+
 export interface AppState {
   profile: UserProfile;
   onboarding: OnboardingState;
@@ -127,5 +146,6 @@ export interface AppState {
   privacy: PrivacySettings;
   kindWords: KindWordEntry[];
   communityShares: CommunityShare[];
+  insightSupportLinks: InsightSupportLink[];
   safety: SafetyState;
 }
