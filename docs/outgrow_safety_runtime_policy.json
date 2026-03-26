@@ -1,0 +1,32 @@
+{
+  "version": "1.0.0",
+  "name": "outgrow_safety_runtime_policy",
+  "default_risk_tier": "tier_0",
+  "risk_tiers": ["tier_0", "tier_1", "tier_2", "tier_3"],
+  "modes": ["normal", "softened", "restricted", "safety_mode", "prolonged_safe_mode"],
+  "global_flags": {
+    "tracking_enabled": true,
+    "progress_visible": true,
+    "optimization_enabled": true,
+    "adaptive_coaching_enabled": true,
+    "community_posting_enabled": true,
+    "wearable_interpretation_enabled": true
+  },
+  "prolonged_safe_mode": {
+    "enabled": true,
+    "base_duration_hours": 48,
+    "escalation_strategy": "increase_duration_on_repeat",
+    "persist_across_reinstall": true,
+    "allowed_surfaces": ["kind", "journaling", "profile"]
+  },
+  "generation_pipeline": {
+    "steps": [
+      "classify_risk_tier",
+      "resolve_surface_rules",
+      "apply_tier_transforms",
+      "generate_or_retrieve_response",
+      "post_generation_safety_check",
+      "block_or_rewrite_if_needed"
+    ]
+  }
+}

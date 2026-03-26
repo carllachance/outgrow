@@ -6,6 +6,7 @@ import { useStore } from '../state/AppStoreContext';
 
 export const TodayScreen = () => {
   const { state } = useStore();
+  const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
   const [selectedAction, setSelectedAction] = useState('meal-intention');
   const [checkedActions, setCheckedActions] = useState<string[]>([]);
@@ -66,7 +67,7 @@ export const TodayScreen = () => {
             Open Kind support
           </Link>
         </div>
-        <div className="action-list" role="list" aria-label="Today actions">
+        {isSafetyMode ? <p className="panel-copy">Safety mode is active, so action planning and tracking are paused. Gentle support remains available.</p> : <div className="action-list" role="list" aria-label="Today actions">
           {actions.map((action) => {
             const isChecked = checkedActions.includes(action.id);
             const isSelected = selectedAction === action.id;
@@ -97,7 +98,7 @@ export const TodayScreen = () => {
               </article>
             );
           })}
-        </div>
+        </div>}
       </section>
 
       <section className="chapter chapter-kind" aria-labelledby="today-kind-title">

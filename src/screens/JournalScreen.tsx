@@ -52,7 +52,7 @@ export const JournalScreen = () => {
         </form>
       </Card>
       <Card title="Recent entries">
-        {state.journalEntries.slice(0, 5).map((item) => (
+        {!state.safety.flags.progress_visible ? <p>Past entries are hidden while safety mode is active.</p> : state.journalEntries.slice(0, 5).map((item) => (
           <p key={item.id}>{new Date(item.date).toLocaleDateString()} — {item.content}</p>
         ))}
       </Card>

@@ -42,6 +42,7 @@ export type RiskCategory =
   | 'none';
 
 export type RiskLevel = 'low' | 'elevated' | 'high';
+export type SafetyTier = 0 | 1 | 2 | 3;
 
 export type IntegrityResult = {
   status: 'allow' | 'review' | 'block';
@@ -86,6 +87,34 @@ export const classifyHealthRisk = (input: string): RiskClassification => {
   }
 
   return { riskLevel: 'low', category: 'none', requiresConstrainedPolicy: false };
+};
+
+const TIER3_PATTERNS = [
+  /\bself-harm|hurt myself|kill myself|suicid(e|al)\b/i,
+  /\bpurge|throw up food|starve myself\b/i,
+  /\bno food for \d+|zero calories\b/i,
+  /\bpunish me|be harsh|tough love|humiliate me\b/i
+];
+
+const TIER2_PATTERNS = [
+  /\bearn food|burn it off|make up for eating\b/i,
+  /\bcheck every hour|log everything|never miss tracking\b/i,
+  /\bi need this app to control me|don't let me stop\b/i
+];
+
+const TIER1_PATTERNS = [
+  /\bguilt|guilty|bad day|failed day\b/i,
+  /\bperfect streak|all or nothing\b/i,
+  /\bcompare myself\b/i
+];
+
+export const detectSafetyTier = (input: string): SafetyTier => {
+  const trimmed = input.trim();
+  if (!trimmed) return 1;
+  if (TIER3_PATTERNS.some((pattern) => pattern.test(trimmed))) return 3;
+  if (TIER2_PATTERNS.some((pattern) => pattern.test(trimmed))) return 2;
+  if (TIER1_PATTERNS.some((pattern) => pattern.test(trimmed))) return 1;
+  return 0;
 };
 
 export const runPostGenerationSafetyCheck = (output: string): PostGenerationCheck => {
