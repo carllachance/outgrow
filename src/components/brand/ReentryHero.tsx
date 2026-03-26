@@ -2,8 +2,9 @@ import { BrandHeader } from './BrandHeader';
 
 export const ReentryHero = () => (
   <BrandHeader
-    title="Glad You’re Here."
-    subtitle="Keep Going."
-    note="You do not need to undo anything. Returning is the work."
+    title="Keep Going."
+    subtitle="Returning is the work."
+    note="You do not need a perfect streak to start again today."
+    kicker="Re-entry"
   />
 );
