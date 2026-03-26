@@ -137,7 +137,7 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   transform: translateX(-50%);
   width: min(488px, calc(100vw - 18px));
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
   background: rgba(247, 241, 230, 0.9);
   border: 1px solid rgba(173, 162, 138, 0.42);
@@ -411,4 +411,33 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   line-height: 1.2;
   color: #313929;
   margin: 0;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-button {
+  width: auto;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.88);
+}
+
+.chip-button.selected {
+  background: rgba(220, 210, 187, 0.95);
+  border-color: rgba(130, 116, 91, 0.55);
+}
+
+.meal-log-item {
+  border-top: 1px solid rgba(166, 151, 123, 0.24);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.meal-log-item p {
+  margin: 0 0 8px;
 }

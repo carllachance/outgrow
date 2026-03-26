@@ -1,5 +1,6 @@
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
+import { Link } from 'react-router-dom';
 
 export const GrowthScreen = () => {
   const { state, addReturnMoment } = useStore();
@@ -15,6 +16,7 @@ export const GrowthScreen = () => {
       </Card>
       <Card title="Rhythm and season">
         <p>The pace can change without progress disappearing. Hard weeks still count.</p>
+        <Link className="button-link" to="/meals">Open meal log</Link>
       </Card>
       <Card title="Moments of return">
         <button disabled={isSafetyMode} onClick={() => addReturnMoment('I came back today and made one workable choice.')}>Log a return moment</button>

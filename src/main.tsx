@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { TodayScreen } from './screens/TodayScreen';
 import { GrowthScreen } from './screens/GrowthScreen';
+import { MealLogScreen } from './screens/MealLogScreen';
 import { JournalScreen } from './screens/JournalScreen';
 import { PrivacyScreen } from './screens/PrivacyScreen';
 import { KindWordsScreen } from './screens/KindWordsScreen';
@@ -21,6 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route element={<Layout />}>
             <Route path="/today" element={<TodayScreen />} />
             <Route path="/growth" element={<GrowthScreen />} />
+            <Route path="/meals" element={<MealLogScreen />} />
             <Route path="/journal" element={<JournalScreen />} />
             <Route path="/privacy" element={<PrivacyScreen />} />
             <Route path="/kind-words" element={<KindWordsScreen />} />

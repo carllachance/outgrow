@@ -1,29 +1,18 @@
 import { useMemo, useState } from 'react';
 import { defaultState } from './defaultState';
-import type { AppState, CommunityCategory, JournalEntry, KindWordEntry, Reflection } from '../types';
+import type { AppState, CommunityCategory, JournalEntry, KindWordEntry, MealLogEntry, Reflection } from '../types';
 import { detectSafetyTier, evaluatePurposeIntegrity, sanitizeForShare, type SafetyTier } from '../data/purposeIntegrity';
 import { outgrowSafetyRuntimePolicy, resolveTierRule } from '../data/safetyRuntimePolicy';
 import { applyTier, appendSafetyEvent, isRestrictionActive } from './safetyState';
+import { hydrateAppState } from './hydrateState';
+import { canUseMealLogging } from './mealLogSummary';
 
 const STORAGE_KEY = 'outgrow-mvp-state-v1';
 const PROLONGED_SAFE_BASE_HOURS = outgrowSafetyRuntimePolicy.prolonged_safe_mode.base_duration_hours;
 
 const readStorage = (): AppState => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState;
-    const parsed = { ...defaultState, ...JSON.parse(raw) } as AppState;
-    return {
-      ...parsed,
-      safety: {
-        ...defaultState.safety,
-        ...parsed.safety,
-        eventLog: parsed.safety?.eventLog ?? []
-      }
-    };
-  } catch {
-    return defaultState;
-  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return hydrateAppState(raw);
 };
 
 const nowIso = () => new Date().toISOString();
@@ -262,6 +251,30 @@ export const useAppStore = () => {
       },
       clearAllData: () => {
         persist(defaultState);
+      },
+      addMealLog: (entry: Omit<MealLogEntry, 'id' | 'timestamp'>) => {
+        if (!canUseMealLogging(state.safety)) {
+          return 'Meal logging is paused while safety mode is active.';
+        }
+
+        const nextEntry: MealLogEntry = {
+          id: crypto.randomUUID(),
+          timestamp: nowIso(),
+          eventType: entry.eventType,
+          compositionTags: entry.compositionTags,
+          portionFeel: entry.portionFeel,
+          context: entry.context,
+          note: entry.note?.trim() || undefined
+        };
+
+        persist({ ...state, mealLogs: [nextEntry, ...state.mealLogs] });
+        return '';
+      },
+      removeMealLog: (id: string) => {
+        persist({ ...state, mealLogs: state.mealLogs.filter((entry) => entry.id !== id) });
+      },
+      clearMealLogs: () => {
+        persist({ ...state, mealLogs: [] });
       }
     }),
     [state]

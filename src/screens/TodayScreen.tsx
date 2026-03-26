@@ -63,6 +63,9 @@ export const TodayScreen = () => {
           <Link className="button-link primary-cta" to="/journal">
             Start: {selectedActionLabel}
           </Link>
+          <Link className="button-link" to="/meals">
+            Quick meal log
+          </Link>
           <Link className="button-link kind-link" to="/kind-words">
             Open Kind support
           </Link>

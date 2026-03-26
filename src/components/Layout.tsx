@@ -11,6 +11,7 @@ type TabItem = {
 const tabs: TabItem[] = [
   { to: '/journal', label: 'Journal', shortLabel: 'Log', icon: '✎' },
   { to: '/today', label: 'Today', shortLabel: 'Now', icon: '◉' },
+  { to: '/meals', label: 'Meals', shortLabel: 'Meals', icon: '◍' },
   { to: '/kind-words', label: 'Kind Words', shortLabel: 'Kind', icon: '♡' },
   { to: '/growth', label: 'Growth', shortLabel: 'Path', icon: '↗' },
   { to: '/profile', label: 'Profile', shortLabel: 'Me', icon: '◔' }

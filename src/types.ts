@@ -35,6 +35,30 @@ export interface ReturnMoment {
   note: string;
 }
 
+export type MealEventType = 'meal' | 'snack' | 'treat' | 'drink';
+export type CompositionTag =
+  | 'protein'
+  | 'produce'
+  | 'fiber'
+  | 'starch'
+  | 'sweets'
+  | 'fried_heavy'
+  | 'ultra_processed'
+  | 'alcohol'
+  | 'caffeine';
+export type PortionFeel = 'light' | 'sensible' | 'heavy';
+export type MealContext = 'hungry' | 'convenience' | 'stress' | 'social' | 'celebration' | 'bored' | 'routine';
+
+export interface MealLogEntry {
+  id: string;
+  timestamp: string;
+  eventType: MealEventType;
+  compositionTags: CompositionTag[];
+  portionFeel: PortionFeel;
+  context?: MealContext;
+  note?: string;
+}
+
 export interface PrivacySettings {
   localOnly: boolean;
   anonymousNods: boolean;
@@ -92,6 +116,7 @@ export interface AppState {
   profile: UserProfile;
   onboarding: OnboardingState;
   journalEntries: JournalEntry[];
+  mealLogs: MealLogEntry[];
   weeklyReflections: Reflection[];
   returnMoments: ReturnMoment[];
   privacy: PrivacySettings;
