@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { defaultState } from './defaultState';
-import type { AppState, CommunityCategory, JournalEntry, KindWordEntry, Reflection, SafetyState } from '../types';
+import type { AppState, CommunityCategory, JournalEntry, KindWordEntry, Reflection } from '../types';
 import { detectSafetyTier, evaluatePurposeIntegrity, sanitizeForShare, type SafetyTier } from '../data/purposeIntegrity';
 import { outgrowSafetyRuntimePolicy, resolveTierRule } from '../data/safetyRuntimePolicy';
+import { applyTier, appendSafetyEvent, isRestrictionActive } from './safetyState';
 
 const STORAGE_KEY = 'outgrow-mvp-state-v1';
 const PROLONGED_SAFE_BASE_HOURS = outgrowSafetyRuntimePolicy.prolonged_safe_mode.base_duration_hours;
@@ -27,121 +28,6 @@ const readStorage = (): AppState => {
 
 const nowIso = () => new Date().toISOString();
 
-const appendSafetyEvent = (safety: SafetyState, event: SafetyState['eventLog'][number]): SafetyState => ({
-  ...safety,
-  lastEventAt: event.at,
-  eventLog: [event, ...safety.eventLog].slice(0, 30)
-});
-
-const isRestrictionActive = (safety: SafetyState) => {
-  if (!safety.restrictionEndsAt) return false;
-  return new Date(safety.restrictionEndsAt).getTime() > Date.now();
-};
-
-const applyTier = (state: AppState, tier: SafetyTier, reason: string): AppState => {
-  const at = nowIso();
-
-  if (tier === 0) {
-    if (state.safety.mode === 'normal') return state;
-    if (isRestrictionActive(state.safety)) {
-      return {
-        ...state,
-        safety: appendSafetyEvent(
-          {
-            ...state.safety,
-            riskTier: 0,
-            mode: 'softened',
-            reason: 'Risk lowered, but bounded safety mode remains active until the current restriction window ends.'
-          },
-          { at, tier, type: 'tier_transition', note: 'Tier 0 detected while restriction window is active.' }
-        )
-      };
-    }
-
-    return {
-      ...state,
-      safety: appendSafetyEvent(
-        {
-          ...state.safety,
-          isPaused: false,
-          mode: resolveTierRule(0).mode,
-          riskTier: 0,
-          hiddenProgress: false,
-          flags: resolveTierRule(0).flags,
-          reason: '',
-          restrictionEndsAt: ''
-        },
-        { at, tier, type: 'tier_transition', note: 'Returned to tier 0 and restored normal bounded support.' }
-      )
-    };
-  }
-
-  if (tier === 1) {
-    return {
-      ...state,
-      safety: appendSafetyEvent(
-        {
-          ...state.safety,
-          isPaused: false,
-          mode: resolveTierRule(1).mode,
-          riskTier: 1,
-          hiddenProgress: false,
-          flags: resolveTierRule(1).flags,
-          reason
-        },
-        { at, tier, type: 'tier_transition', note: 'Tier 1 caution state: softened support and reduced intensity.' }
-      )
-    };
-  }
-
-  if (tier === 2) {
-    return {
-      ...state,
-      safety: appendSafetyEvent(
-        {
-          ...state.safety,
-          isPaused: true,
-          mode: resolveTierRule(2).mode,
-          riskTier: 2,
-          hiddenProgress: false,
-          flags: resolveTierRule(2).flags,
-          reason,
-          restrictionEndsAt: state.safety.restrictionEndsAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        },
-        { at, tier, type: 'tier_transition', note: 'Tier 2 elevated concern: optimization/community disabled.' }
-      )
-    };
-  }
-
-  const redFlagCount = state.safety.eventLog.filter((event) => event.tier === 3).length + 1;
-  const isProlonged = redFlagCount >= 2 || state.safety.resetRequests >= 2;
-  const restrictionHours = PROLONGED_SAFE_BASE_HOURS * Math.max(1, redFlagCount);
-
-  return {
-    ...state,
-    safety: appendSafetyEvent(
-      {
-        ...state.safety,
-        isPaused: true,
-        mode: isProlonged ? 'prolonged_safe_mode' : resolveTierRule(3).mode,
-        riskTier: 3,
-        hiddenProgress: true,
-        flags: resolveTierRule(3).flags,
-        reason,
-        restrictionEndsAt: new Date(Date.now() + restrictionHours * 60 * 60 * 1000).toISOString()
-      },
-      {
-        at,
-        tier,
-        type: 'tier_transition',
-        note: isProlonged
-          ? 'Tier 3 repeated: entered prolonged safe mode with escalating restriction window.'
-          : 'Tier 3 detected: entered constrained safety mode.'
-      }
-    )
-  };
-};
-
 export const useAppStore = () => {
   const [state, setState] = useState<AppState>(() => readStorage());
 
@@ -155,6 +41,7 @@ export const useAppStore = () => {
       state,
       requestSafetyReset: () => {
         const at = nowIso();
+        const nowMs = Date.now();
         const nextResetRequests = state.safety.resetRequests + 1;
         const shouldEscalate = nextResetRequests >= 2 || state.safety.mode === 'prolonged_safe_mode';
         const restrictionHours = PROLONGED_SAFE_BASE_HOURS * Math.max(1, nextResetRequests);
@@ -167,12 +54,12 @@ export const useAppStore = () => {
               mode: shouldEscalate ? 'prolonged_safe_mode' : resolveTierRule(2).mode,
               riskTier: Math.max(state.safety.riskTier, 2) as SafetyTier,
               reason: shouldEscalate
-                ? 'Reset logged. Outgrow remains in prolonged safe mode to prevent unsafe cycling.'
-                : 'Reset logged. Safety mode remains active and will restore features gradually.',
+                ? 'Reset logged. Outgrow remains in prolonged safe mode with safety restrictions still active.'
+                : 'Reset logged. Outgrow remains in restricted safety mode with posting/coaching limits still active.',
               hiddenProgress: true,
               flags: resolveTierRule(3).flags,
               resetRequests: nextResetRequests,
-              restrictionEndsAt: new Date(Date.now() + restrictionHours * 60 * 60 * 1000).toISOString()
+              restrictionEndsAt: new Date(nowMs + restrictionHours * 60 * 60 * 1000).toISOString()
             },
             {
               at,
@@ -224,14 +111,16 @@ export const useAppStore = () => {
       },
       addJournalEntry: (entry: Omit<JournalEntry, 'id' | 'date'>) => {
         const screenedContent = sanitizeForShare(entry.content);
+        if (!screenedContent) return '';
         const tier = detectSafetyTier(screenedContent);
+        const at = nowIso();
         const riskAdjusted = applyTier(state, tier, tier >= 3
           ? 'Strong risk signals detected. Tracking and progress views are paused for safety.'
           : tier === 2
             ? 'Elevated concern detected. Outgrow is simplifying support and disabling optimization surfaces.'
             : tier === 1
               ? 'Caution detected. Outgrow is softening language and keeping support low-pressure.'
-              : '');
+              : '', at);
 
         if (riskAdjusted !== state) {
           persist(riskAdjusted);
@@ -257,30 +146,56 @@ export const useAppStore = () => {
         return integrity.status === 'review' ? integrity.message : '';
       },
       addReflection: (reflection: Reflection) => {
-        if (!state.safety.flags.optimization_enabled) {
+        const screened = sanitizeForShare([reflection.worked, reflection.didntHold, reflection.change, reflection.adapt].join(' '));
+        if (!screened) return '';
+        const at = nowIso();
+        const tier = detectSafetyTier(screened);
+        const riskAdjusted = applyTier(state, tier, tier >= 2
+          ? 'Elevated concern detected in reflection content. Outgrow is reducing optimization intensity.'
+          : tier === 1
+            ? 'Caution detected in reflection content. Outgrow is softening support.'
+            : '', at);
+        if (riskAdjusted !== state) {
+          persist(riskAdjusted);
+        }
+        if (!riskAdjusted.safety.flags.optimization_enabled) {
           return 'Weekly optimization reflections are paused while safety mode is active.';
         }
-        persist({ ...state, weeklyReflections: [reflection, ...state.weeklyReflections] });
+        persist({ ...riskAdjusted, weeklyReflections: [reflection, ...riskAdjusted.weeklyReflections] });
         return '';
       },
       addReturnMoment: (note: string) => {
-        if (!state.safety.flags.tracking_enabled) {
+        const screened = sanitizeForShare(note);
+        if (!screened) return '';
+        const at = nowIso();
+        const tier = detectSafetyTier(screened);
+        const riskAdjusted = applyTier(state, tier, tier >= 2
+          ? 'Elevated concern detected in return note. Outgrow is limiting tracking surfaces for safety.'
+          : tier === 1
+            ? 'Caution detected in return note. Outgrow is softening support.'
+            : '', at);
+        if (riskAdjusted !== state) {
+          persist(riskAdjusted);
+        }
+        if (!riskAdjusted.safety.flags.tracking_enabled) {
           return 'Return logging is unavailable while safety mode is active.';
         }
-        const full = { id: crypto.randomUUID(), note, date: nowIso() };
-        persist({ ...state, returnMoments: [full, ...state.returnMoments] });
+        const full = { id: crypto.randomUUID(), note: screened, date: nowIso() };
+        persist({ ...riskAdjusted, returnMoments: [full, ...riskAdjusted.returnMoments] });
         return '';
       },
       addKindWord: (request: string, response: string) => {
         const screenedRequest = sanitizeForShare(request);
+        if (!screenedRequest) return '';
         const tier = detectSafetyTier(screenedRequest);
+        const at = nowIso();
         const riskAdjusted = applyTier(state, tier, tier >= 3
           ? 'Strong risk signals detected. Outgrow moved into constrained safety mode.'
           : tier === 2
             ? 'Elevated concern detected. Kind support is now bounded and less generative.'
             : tier === 1
               ? 'Caution detected. Kind support is softened and less precise.'
-              : '');
+              : '', at);
         if (riskAdjusted !== state) {
           persist(riskAdjusted);
         }
@@ -306,10 +221,21 @@ export const useAppStore = () => {
         return '';
       },
       addCommunityShare: (content: string, category: CommunityCategory) => {
-        if (!state.safety.flags.community_posting_enabled) {
+        const screened = sanitizeForShare(content);
+        if (!screened) return '';
+        const at = nowIso();
+        const tier = detectSafetyTier(screened);
+        const riskAdjusted = applyTier(state, tier, tier >= 2
+          ? 'Elevated concern detected in community draft. Posting is being limited for safety.'
+          : tier === 1
+            ? 'Caution detected in community draft. Outgrow is softening support tone.'
+            : '', at);
+        if (riskAdjusted !== state) {
+          persist(riskAdjusted);
+        }
+        if (!riskAdjusted.safety.flags.community_posting_enabled) {
           return 'Community posting is unavailable while safety restrictions are active.';
         }
-        const screened = sanitizeForShare(content);
         const integrity = evaluatePurposeIntegrity(screened);
         if (integrity.status === 'block') {
           return integrity.message;
@@ -323,7 +249,7 @@ export const useAppStore = () => {
           authorLabel: 'Anonymous',
           isFlagged: integrity.status === 'review'
         };
-        persist({ ...state, communityShares: [full, ...state.communityShares] });
+        persist({ ...riskAdjusted, communityShares: [full, ...riskAdjusted.communityShares] });
         return integrity.message;
       },
       flagCommunityShare: (id: string) => {
