@@ -9,7 +9,6 @@ type StretchGoal = {
   kind: 'simple' | 'input';
   label: string;
   support?: string;
-  actionLabel: string;
 };
 
 export const TodayScreen = () => {
@@ -17,7 +16,6 @@ export const TodayScreen = () => {
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
-  const [completedStretch, setCompletedStretch] = useState<string[]>([]);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
   const [todaySuccessMessage, setTodaySuccessMessage] = useState('');
@@ -25,6 +23,7 @@ export const TodayScreen = () => {
   const todayDateKey = new Date().toISOString().slice(0, 10);
   const savedTodaySuccess = state.todaySuccessByDate[todayDateKey] ?? '';
   const [todaySuccessDraft, setTodaySuccessDraft] = useState(savedTodaySuccess);
+  const [isEditingTodaySuccess, setIsEditingTodaySuccess] = useState(false);
 
   const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work.';
   const currentFocus = state.onboarding.currentFocus || 'Keep it honest and doable.';
@@ -52,34 +51,35 @@ export const TodayScreen = () => {
         id: 'reset-walk',
         kind: 'simple',
         label: 'Add a short reset walk',
-        actionLabel: 'Mark done',
+        support: 'If it helps, a few minutes outside can reset your pace.',
       },
       {
         id: 'note-tonight',
         kind: 'input',
         label: 'Leave a note for tonight-you',
         support: 'One sentence is enough.',
-        actionLabel: 'Save note',
       },
       {
         id: 'kind-visit',
         kind: 'simple',
         label: 'Open Kind for a grounding minute',
-        actionLabel: 'Mark done',
+        support: 'Kind is there when you want a gentle reset.',
       },
     ],
     [],
   );
 
-  const toggleStretchComplete = (goalId: string) => {
-    setCompletedStretch((existing) =>
-      existing.includes(goalId) ? existing.filter((id) => id !== goalId) : [...existing, goalId],
-    );
-  };
-
-  const saveTodaySuccessDraft = () => {
+  const saveTodaySuccessDraft = (closeCard = true) => {
     const result = saveTodaySuccess(todayDateKey, todaySuccessDraft);
-    setTodaySuccessMessage(result || 'Saved your definition of success for today.');
+    if (result) {
+      setTodaySuccessMessage(result);
+      return false;
+    }
+    setTodaySuccessMessage('Saved for today.');
+    if (closeCard) {
+      setIsEditingTodaySuccess(false);
+    }
+    return true;
   };
 
   const saveTonightNote = () => {
@@ -112,41 +112,74 @@ export const TodayScreen = () => {
       <section className="atmospheric-panel today-primary" aria-labelledby="today-success-title">
         <p className="panel-kicker">Today</p>
         <h2 id="today-success-title" className="panel-title">Today, success looks like…</h2>
-        <label htmlFor="today-success-input" className="sr-only">Your success definition for today</label>
-        <textarea
-          id="today-success-input"
-          className="today-success-input"
-          value={todaySuccessDraft}
-          onChange={(event) => {
-            setTodaySuccessDraft(event.target.value);
-            setTodaySuccessMessage('');
-          }}
-          rows={2}
-          placeholder="Example: Finish my top priority by lunch and eat one grounded meal."
-        />
-
-        {suggestionChips.length ? (
-          <div className="chip-row" aria-label="Optional suggestions">
-            {suggestionChips.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                className="chip-button"
-                onClick={() => {
-                  setTodaySuccessDraft(suggestion);
-                  setTodaySuccessMessage('');
-                }}
-              >
-                {suggestion}
-              </button>
-            ))}
+        {!isEditingTodaySuccess ? (
+          <div className="today-intention-card">
+            <button
+              type="button"
+              className="today-intention-display"
+              onClick={() => {
+                setTodaySuccessMessage('');
+                setIsEditingTodaySuccess(true);
+              }}
+              aria-label="Edit today intention"
+            >
+              {savedTodaySuccess || 'Choose one clear intention for today.'}
+            </button>
+            <button
+              type="button"
+              className="action-expand today-change-win"
+              onClick={() => {
+                setTodaySuccessMessage('');
+                setIsEditingTodaySuccess(true);
+              }}
+            >
+              Edit
+            </button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <label htmlFor="today-success-input" className="sr-only">Your success definition for today</label>
+            <textarea
+              id="today-success-input"
+              className="today-success-input"
+              value={todaySuccessDraft}
+              onChange={(event) => {
+                setTodaySuccessDraft(event.target.value);
+                setTodaySuccessMessage('');
+              }}
+              onBlur={() => {
+                saveTodaySuccessDraft(true);
+              }}
+              rows={2}
+              placeholder="Example: Finish my top priority by lunch and eat one grounded meal."
+              autoFocus
+            />
+
+            {suggestionChips.length ? (
+              <div className="chip-row" aria-label="Intention suggestions">
+                {suggestionChips.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className="chip-button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setTodaySuccessDraft(suggestion);
+                      setTodaySuccessMessage('');
+                      saveTodaySuccess(todayDateKey, suggestion);
+                      setTodaySuccessMessage('Saved for today.');
+                      setIsEditingTodaySuccess(false);
+                    }}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
 
         <div className="inline-actions today-primary-actions">
-          <button type="button" className="button-link primary-cta" onClick={saveTodaySuccessDraft}>
-            Save today’s success
-          </button>
           <Link className="button-link" to="/journal">
             Plan this in Journal
           </Link>
@@ -158,12 +191,11 @@ export const TodayScreen = () => {
       </section>
 
       <section className="chapter today-stretch" aria-labelledby="stretch-title">
-        <p className="panel-kicker">Optional</p>
-        <h3 id="stretch-title">Stretch goals</h3>
-        <div className="stretch-list" role="list" aria-label="Optional stretch goals">
+        <p className="panel-kicker">If it helps</p>
+        <h3 id="stretch-title">Supportive options</h3>
+        <div className="stretch-list" role="list" aria-label="Supportive options">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;
-            const isComplete = completedStretch.includes(goal.id);
             return (
               <article key={goal.id} className={`stretch-row${isExpanded ? ' expanded' : ''}`} role="listitem">
                 <button
@@ -176,7 +208,6 @@ export const TodayScreen = () => {
                   aria-expanded={isExpanded}
                 >
                   <span>{goal.label}</span>
-                  <span className="stretch-row-state">{isComplete ? 'Done' : 'Optional'}</span>
                 </button>
 
                 {isExpanded ? (
@@ -188,14 +219,9 @@ export const TodayScreen = () => {
                           <Link className="button-link" to="/kind-words">
                             Open Kind
                           </Link>
-                          <button type="button" className="action-expand" onClick={() => toggleStretchComplete(goal.id)}>
-                            {isComplete ? 'Completed' : goal.actionLabel}
-                          </button>
                         </div>
                       ) : (
-                        <button type="button" className="action-expand" onClick={() => toggleStretchComplete(goal.id)}>
-                          {isComplete ? 'Completed' : goal.actionLabel}
-                        </button>
+                        <p className="panel-copy">Available whenever you want it.</p>
                       )
                     ) : (
                       <div className="today-inline-note">
@@ -208,7 +234,7 @@ export const TodayScreen = () => {
                           rows={2}
                         />
                         <button type="button" className="action-expand" onClick={saveTonightNote}>
-                          {goal.actionLabel}
+                          Save note
                         </button>
                       </div>
                     )}
