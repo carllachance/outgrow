@@ -30,11 +30,15 @@ export const KindWordsScreen = () => {
         <button
           type="button"
           onClick={() => {
-            const response = getHandResponse();
-            if (request.trim()) {
-              const message = addKindWord(request, response);
-              setHandMessage(message);
+            const trimmed = request.trim();
+            if (!trimmed) {
+              setHandMessage('Share a little context so we can keep support specific and kind.');
+              return;
             }
+
+            const generated = getHandResponse(trimmed);
+            const storeMessage = addKindWord(trimmed, generated.response);
+            setHandMessage([storeMessage, generated.response].filter(Boolean).join(' ').trim());
             setRequest('');
           }}
         >
