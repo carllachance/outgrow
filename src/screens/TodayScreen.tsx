@@ -4,52 +4,89 @@ import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
+type DailyWin = {
+  id: string;
+  label: string;
+  ctaLabel: string;
+  ctaTo: string;
+};
+
+type StretchGoal = {
+  id: string;
+  kind: 'simple' | 'input';
+  label: string;
+  support?: string;
+  actionLabel: string;
+};
+
 export const TodayScreen = () => {
   const { state, addReturnMoment } = useStore();
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
-  const [selectedAction, setSelectedAction] = useState('meal-intention');
-  const [checkedActions, setCheckedActions] = useState<string[]>([]);
+  const [selectedWinId, setSelectedWinId] = useState('steady-meal');
+  const [showWinPicker, setShowWinPicker] = useState(false);
+  const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
+  const [completedStretch, setCompletedStretch] = useState<string[]>([]);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
 
-  const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work. Start where you are today.';
-  const currentFocus = state.onboarding.currentFocus || 'Showing up counts. Choose one useful thing for today.';
-  const actions = useMemo(
+  const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work.';
+  const currentFocus = state.onboarding.currentFocus || 'Keep it honest and doable.';
+
+  const dailyWins = useMemo<DailyWin[]>(
     () => [
       {
-        id: 'meal-intention',
-        kind: 'simple' as const,
-        label: 'Name one meal intention',
-        support: 'Write one line for what steady nourishment looks like in your next meal.',
-        actionLabel: 'Mark intention named',
+        id: 'steady-meal',
+        label: 'Eat one steady meal without multitasking.',
+        ctaLabel: 'Log your next meal intention',
+        ctaTo: '/meals',
       },
       {
-        id: 'reset-walk',
-        kind: 'simple' as const,
-        label: 'Take a 10-minute reset walk',
-        support: 'No pace goal, no distance goal. Just move and return to your breath.',
-        actionLabel: 'Mark walk complete',
+        id: 'ten-minute-reset',
+        label: 'Take a 10-minute reset walk and breathe.',
+        ctaLabel: 'Capture a quick check-in',
+        ctaTo: '/journal',
       },
       {
-        id: 'note-tonight',
-        kind: 'input' as const,
-        label: 'Leave a note for tonight-you',
-        support: 'Capture one sentence your later self can lean on when energy dips.',
-        actionLabel: 'Save note for tonight',
+        id: 'close-one-loop',
+        label: 'Close one open loop you have been avoiding.',
+        ctaLabel: 'Name the one thing in Journal',
+        ctaTo: '/journal',
       },
     ],
     [],
   );
-  const latestTonightNote = state.returnMoments[0];
-  const currentHour = new Date().getHours();
-  const isTonightContext = currentHour >= 17 || currentHour < 4;
-  const selectedActionLabel = actions.find((action) => action.id === selectedAction)?.label ?? actions[0].label;
 
-  const toggleChecked = (actionId: string) => {
-    setInlineMessage('');
-    setCheckedActions((existing) =>
-      existing.includes(actionId) ? existing.filter((id) => id !== actionId) : [...existing, actionId],
+  const stretchGoals = useMemo<StretchGoal[]>(
+    () => [
+      {
+        id: 'reset-walk',
+        kind: 'simple',
+        label: 'Add a short reset walk',
+        actionLabel: 'Mark done',
+      },
+      {
+        id: 'note-tonight',
+        kind: 'input',
+        label: 'Leave a note for tonight-you',
+        support: 'One sentence is enough.',
+        actionLabel: 'Save note',
+      },
+      {
+        id: 'kind-visit',
+        kind: 'simple',
+        label: 'Open Kind for a grounding minute',
+        actionLabel: 'Mark done',
+      },
+    ],
+    [],
+  );
+
+  const selectedWin = dailyWins.find((win) => win.id === selectedWinId) ?? dailyWins[0];
+
+  const toggleStretchComplete = (goalId: string) => {
+    setCompletedStretch((existing) =>
+      existing.includes(goalId) ? existing.filter((id) => id !== goalId) : [...existing, goalId],
     );
   };
 
@@ -63,8 +100,9 @@ export const TodayScreen = () => {
       setInlineMessage(result);
       return;
     }
-    setInlineMessage('Saved. We will resurface this in tonight context and in Growth notes.');
+    setInlineMessage('Saved for later tonight.');
     setTonightNoteDraft('');
+    setExpandedStretchId(null);
   };
 
   return (
@@ -74,88 +112,118 @@ export const TodayScreen = () => {
       ) : (
         <BrandHeader
           title="Glad You’re Here."
-          note="This space is not for performance. It is for honest return. One chapter at a time."
+          note="This space is for one honest next step, not performance."
           kicker="Arrival"
         />
       )}
 
-      <section className="atmospheric-panel today-primary" aria-labelledby="today-arrival-title">
+      <section className="atmospheric-panel today-primary" aria-labelledby="today-success-title">
         <p className="panel-kicker">Today</p>
-        <h2 id="today-arrival-title" className="panel-title">What would make today a little steadier?</h2>
-        <p className="panel-copy">{currentFocus}</p>
-        <p className="panel-copy panel-copy-support">{weeklyLens}</p>
+        <h2 id="today-success-title" className="panel-title">Today, success looks like…</h2>
+        <p className="today-win-statement">{selectedWin.label}</p>
+
         <div className="inline-actions today-primary-actions">
-          <Link className="button-link primary-cta" to="/journal">
-            Start: {selectedActionLabel}
+          <Link className="button-link primary-cta" to={selectedWin.ctaTo}>
+            {selectedWin.ctaLabel}
           </Link>
-          <Link className="button-link" to="/meals">
-            Quick meal log
-          </Link>
-          <Link className="button-link kind-link" to="/kind-words">
-            Open Kind support
-          </Link>
+          <button
+            type="button"
+            className="action-expand today-change-win"
+            onClick={() => setShowWinPicker((existing) => !existing)}
+          >
+            {showWinPicker ? 'Hide other win options' : 'Choose a different today win'}
+          </button>
         </div>
-        {isSafetyMode ? <p className="panel-copy">Safety mode is active, so action planning and tracking are paused. Gentle support remains available.</p> : <div className="action-list" role="list" aria-label="Today actions">
-          {actions.map((action) => {
-            const isChecked = checkedActions.includes(action.id);
-            const isSelected = selectedAction === action.id;
+
+        {showWinPicker ? (
+          <div className="choices today-win-choices" role="list" aria-label="Today win options">
+            {dailyWins.map((win) => (
+              <button
+                key={win.id}
+                type="button"
+                role="listitem"
+                className={`choice-chip${selectedWinId === win.id ? ' active' : ''}`}
+                onClick={() => {
+                  setSelectedWinId(win.id);
+                  setShowWinPicker(false);
+                }}
+              >
+                {win.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
+      </section>
+
+      <section className="chapter today-stretch" aria-labelledby="stretch-title">
+        <p className="panel-kicker">Optional</p>
+        <h3 id="stretch-title">Stretch goals</h3>
+        <div className="stretch-list" role="list" aria-label="Optional stretch goals">
+          {stretchGoals.map((goal) => {
+            const isExpanded = expandedStretchId === goal.id;
+            const isComplete = completedStretch.includes(goal.id);
             return (
-              <article key={action.id} className={`action-item${isSelected ? ' selected' : ''}`} role="listitem">
+              <article key={goal.id} className={`stretch-row${isExpanded ? ' expanded' : ''}`} role="listitem">
                 <button
                   type="button"
-                  className="action-check"
-                  onClick={() => toggleChecked(action.id)}
-                  aria-pressed={isChecked}
-                  aria-label={`${isChecked ? 'Mark not done' : 'Mark done'}: ${action.label}`}
+                  className="stretch-row-trigger"
+                  onClick={() => {
+                    setInlineMessage('');
+                    setExpandedStretchId((current) => (current === goal.id ? null : goal.id));
+                  }}
+                  aria-expanded={isExpanded}
                 >
-                  {isChecked ? '✓' : '○'}
+                  <span>{goal.label}</span>
+                  <span className="stretch-row-state">{isComplete ? 'Done' : 'Optional'}</span>
                 </button>
-                <button type="button" className="action-select" onClick={() => setSelectedAction(action.id)}>
-                  {action.label}
-                </button>
-                <p className="action-support">{action.support}</p>
-                {action.kind === 'simple' ? (
-                  <button type="button" className="action-expand" onClick={() => toggleChecked(action.id)}>
-                    {checkedActions.includes(action.id) ? 'Completed' : action.actionLabel}
-                  </button>
-                ) : (
-                  <div className="today-inline-note">
-                    <label htmlFor="tonight-note" className="sr-only">Tonight note</label>
-                    <textarea
-                      id="tonight-note"
-                      value={tonightNoteDraft}
-                      onChange={(event) => setTonightNoteDraft(event.target.value)}
-                      placeholder="One line for your later self"
-                      rows={2}
-                    />
-                    <button type="button" className="action-expand" onClick={saveTonightNote}>
-                      {action.actionLabel}
-                    </button>
+
+                {isExpanded ? (
+                  <div className="stretch-row-inline">
+                    {goal.support ? <p className="action-support">{goal.support}</p> : null}
+                    {goal.kind === 'simple' ? (
+                      goal.id === 'kind-visit' ? (
+                        <div className="inline-actions stretch-inline-actions">
+                          <Link className="button-link" to="/kind-words">
+                            Open Kind
+                          </Link>
+                          <button type="button" className="action-expand" onClick={() => toggleStretchComplete(goal.id)}>
+                            {isComplete ? 'Completed' : goal.actionLabel}
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button" className="action-expand" onClick={() => toggleStretchComplete(goal.id)}>
+                          {isComplete ? 'Completed' : goal.actionLabel}
+                        </button>
+                      )
+                    ) : (
+                      <div className="today-inline-note">
+                        <label htmlFor="tonight-note" className="sr-only">Tonight note</label>
+                        <textarea
+                          id="tonight-note"
+                          value={tonightNoteDraft}
+                          onChange={(event) => setTonightNoteDraft(event.target.value)}
+                          placeholder="One line for your later self"
+                          rows={2}
+                        />
+                        <button type="button" className="action-expand" onClick={saveTonightNote}>
+                          {goal.actionLabel}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
               </article>
             );
           })}
-        </div>}
+        </div>
         {inlineMessage ? <p className="panel-copy">{inlineMessage}</p> : null}
-        {latestTonightNote ? (
-          <article className="action-item" aria-live="polite">
-            <p className="panel-kicker">Tonight retrieval</p>
-            {isTonightContext ? <p className="action-support">Saved note for now: {latestTonightNote.note}</p> : <p className="action-support">Your latest tonight note is stored and will reappear this evening.</p>}
-            <Link className="button-link" to="/growth">Open Growth notes</Link>
-          </article>
-        ) : null}
       </section>
 
-      <section className="chapter chapter-kind" aria-labelledby="today-kind-title">
-        <p className="panel-kicker">Kind</p>
-        <h3 id="today-kind-title">Need grounding before action?</h3>
-        <p>Kind is always available as a first stop when the day feels heavy or noisy.</p>
-        <div className="inline-actions" style={{ marginTop: '14px' }}>
-          <Link className="button-link" to="/kind-words">
-            Go to Kind now
-          </Link>
-        </div>
+      <section className="chapter today-longer-arc" aria-label="Bigger picture">
+        <p className="panel-kicker">What this supports</p>
+        <p className="today-longer-arc-copy">{weeklyLens || currentFocus}</p>
       </section>
     </div>
   );
