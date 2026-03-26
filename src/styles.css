@@ -275,6 +275,10 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   color: #4f5a52;
 }
 
+.panel-copy-support {
+  margin-top: 10px;
+}
+
 .chapter {
   border-radius: 30px;
   padding: 28px;
@@ -321,6 +325,84 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   border-radius: 999px;
   background: #d8cab0;
   border-color: rgba(130, 116, 91, 0.4);
+}
+
+.today-primary {
+  display: grid;
+  gap: 14px;
+}
+
+.today-primary-actions {
+  margin-top: 4px;
+}
+
+.kind-link {
+  background: rgba(255, 252, 247, 0.88);
+}
+
+.action-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.action-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(166, 151, 123, 0.38);
+  background: rgba(255, 252, 247, 0.64);
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.action-item.selected {
+  border-color: rgba(136, 119, 89, 0.6);
+  background: rgba(240, 231, 212, 0.75);
+}
+
+.action-check,
+.action-select,
+.action-expand {
+  margin: 0;
+  width: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.action-check {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 132, 108, 0.45);
+  background: rgba(255, 252, 247, 0.8);
+  font-size: 1rem;
+}
+
+.action-select {
+  text-align: left;
+  color: #2c362d;
+  font-weight: 600;
+}
+
+.action-expand {
+  font-size: 0.8rem;
+  color: #5e665f;
+  text-decoration: underline;
+}
+
+.action-support {
+  grid-column: 2 / span 2;
+  margin: 0;
+  color: #59645b;
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.chapter-kind {
+  margin-top: -6px;
 }
 
 .privacy-quote {
