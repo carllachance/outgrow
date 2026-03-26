@@ -562,3 +562,79 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   border-top: 1px solid rgba(166, 151, 123, 0.24);
   padding-top: 10px;
 }
+
+
+.today-win-statement {
+  margin: 0;
+  max-width: 26ch;
+  font-size: 1.2rem;
+  line-height: 1.45;
+  color: #313b33;
+}
+
+.today-change-win {
+  justify-self: start;
+  margin-top: -2px;
+}
+
+.today-win-choices {
+  margin-top: 2px;
+}
+
+.today-stretch {
+  display: grid;
+  gap: 10px;
+}
+
+.stretch-list {
+  display: grid;
+  gap: 10px;
+}
+
+.stretch-row {
+  border: 1px solid rgba(166, 151, 123, 0.3);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.58);
+}
+
+.stretch-row-trigger {
+  margin: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  color: #2c362d;
+  font-weight: 550;
+}
+
+.stretch-row-state {
+  font-size: 0.78rem;
+  color: #6b7268;
+  font-weight: 500;
+}
+
+.stretch-row-inline {
+  border-top: 1px solid rgba(166, 151, 123, 0.24);
+  padding: 10px 14px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.stretch-inline-actions {
+  margin-top: 2px;
+}
+
+.today-longer-arc {
+  padding: 18px 22px;
+  background: rgba(255, 252, 247, 0.46);
+}
+
+.today-longer-arc-copy {
+  margin: 6px 0 0;
+  color: #646d65;
+  line-height: 1.45;
+}
