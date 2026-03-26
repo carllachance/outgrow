@@ -11,7 +11,7 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <BrandHeader title="Kind Words" subtitle="Be kind to yourself." note="Support without pressure." compactMark />
+      <BrandHeader title="Kind Words" subtitle="Be kind to yourself." note="Support without pressure." />
       <Card title="Inspire me">
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
         {inspire ? <p>{inspire}</p> : null}
