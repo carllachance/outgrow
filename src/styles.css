@@ -137,13 +137,31 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   transform: translateX(-50%);
   width: min(488px, calc(100vw - 18px));
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 8px;
   background: rgba(247, 241, 230, 0.9);
   border: 1px solid rgba(173, 162, 138, 0.42);
   border-radius: 24px;
   padding: 10px;
   backdrop-filter: blur(10px);
+}
+
+.meal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.meal-actions button {
+  margin-top: 0;
+}
+
+.explanation-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: #2f4034;
 }
 
 .tab {
