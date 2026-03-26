@@ -155,4 +155,12 @@ export interface RecipeSuggestionSessionContext {
   positiveExampleSignatures: string[];
   preferredTokens: string[];
   avoidedTokens: string[];
+  lastSteeringSignals?: string[];
+}
+
+export interface FoodRules {
+  dietaryDefaults: Array<'gluten_free' | 'vegetarian' | 'dairy_light'>;
+  standingOrders: string[];
+  ingredientExclusions: string[];
+  allergies: string[];
 }

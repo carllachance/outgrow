@@ -81,6 +81,20 @@ export const hydrateAppState = (raw: string | null): AppState => {
         ...defaultState.safety,
         ...parsed.safety,
         eventLog: parsed.safety?.eventLog ?? []
+      },
+      foodRules: {
+        dietaryDefaults: Array.isArray(parsed.foodRules?.dietaryDefaults)
+          ? parsed.foodRules.dietaryDefaults.filter((rule): rule is 'gluten_free' | 'vegetarian' | 'dairy_light' => rule === 'gluten_free' || rule === 'vegetarian' || rule === 'dairy_light')
+          : [],
+        standingOrders: Array.isArray(parsed.foodRules?.standingOrders)
+          ? parsed.foodRules.standingOrders.map((entry) => String(entry).trim()).filter(Boolean)
+          : [],
+        ingredientExclusions: Array.isArray(parsed.foodRules?.ingredientExclusions)
+          ? parsed.foodRules.ingredientExclusions.map((entry) => String(entry).trim()).filter(Boolean)
+          : [],
+        allergies: Array.isArray(parsed.foodRules?.allergies)
+          ? parsed.foodRules.allergies.map((entry) => String(entry).trim()).filter(Boolean)
+          : []
       }
     };
   } catch {

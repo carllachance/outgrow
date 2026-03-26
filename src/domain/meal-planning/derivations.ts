@@ -1,4 +1,5 @@
 import type {
+  FoodRules,
   MealPlanEntry,
   PantryItem,
   PantryStatus,
@@ -30,6 +31,7 @@ interface DeriveShoppingListInput {
   recipeById: Record<string, Recipe>;
   pantryItems?: PantryItem[];
   stapleItemKeys?: string[];
+  foodRules?: FoodRules;
   nowIso?: string;
 }
 
@@ -61,6 +63,18 @@ const normalizeItemKey = (value: string): string =>
 export const normalizeIngredientAlias = (itemKey: string): string => {
   const normalized = normalizeItemKey(itemKey);
   return INGREDIENT_ALIASES[normalized] ?? normalized;
+};
+
+const blockedShoppingItemKeys = (foodRules?: FoodRules): Set<string> => {
+  if (!foodRules) return new Set();
+  const blocked = [
+    ...foodRules.ingredientExclusions.map(normalizeIngredientAlias),
+    ...foodRules.allergies.map(normalizeIngredientAlias)
+  ];
+  if (blocked.includes('gluten') || foodRules.dietaryDefaults.includes('gluten_free')) {
+    blocked.push('orzo', 'farro', 'wheat', 'barley', 'rye', 'pasta', 'breadcrumbs');
+  }
+  return new Set(blocked);
 };
 
 const derivePantryStatus = (itemKey: string, pantryByKey: Map<string, PantryItem>): { pantryStatus: PantryStatus; stapleAssumed: boolean } => {
@@ -132,6 +146,7 @@ export const deriveShoppingList = ({
   recipeById,
   pantryItems = [],
   stapleItemKeys = [],
+  foodRules,
   nowIso = new Date().toISOString()
 }: DeriveShoppingListInput): { shoppingList: ShoppingList; items: ShoppingListItem[] } => {
   const pantryByKey = new Map<string, PantryItem>(
@@ -153,6 +168,7 @@ export const deriveShoppingList = ({
   }
 
   const aggregate = new Map<string, ShoppingListItem>();
+  const blockedItemKeys = blockedShoppingItemKeys(foodRules);
 
   for (const meal of plannedMeals) {
     if (meal.status === 'skipped') {
@@ -169,6 +185,9 @@ export const deriveShoppingList = ({
     for (const ingredient of scaledIngredients) {
       const itemKey = normalizeIngredientAlias(ingredient.itemKey || ingredient.displayName);
       if (!itemKey) {
+        continue;
+      }
+      if (blockedItemKeys.has(itemKey)) {
         continue;
       }
 

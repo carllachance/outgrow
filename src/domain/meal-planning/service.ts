@@ -5,6 +5,7 @@ import {
   generateRecipeCard
 } from './derivations.js';
 import type {
+  FoodRules,
   MealPlanEntry,
   PantryItem,
   Recipe,
@@ -40,6 +41,7 @@ export interface MealPlanningServiceContract {
     scope: ShoppingList['scope'];
     pantryItems?: PantryItem[];
     stapleItemKeys?: string[];
+    foodRules?: FoodRules;
     nowIso?: string;
   }): RecalculateShoppingResult;
   generateRecipeCard(input: { recipeId: string; plannedDate?: string; mealType?: MealPlanEntry['mealType'] }): RecipeCardView;
@@ -136,6 +138,7 @@ export class InMemoryMealPlanningService implements MealPlanningServiceContract 
     scope: ShoppingList['scope'];
     pantryItems?: PantryItem[];
     stapleItemKeys?: string[];
+    foodRules?: FoodRules;
     nowIso?: string;
   }): RecalculateShoppingResult {
     const recipeById = Object.fromEntries(this.recipes.entries());
@@ -148,6 +151,7 @@ export class InMemoryMealPlanningService implements MealPlanningServiceContract 
       recipeById,
       pantryItems: input.pantryItems,
       stapleItemKeys: input.stapleItemKeys,
+      foodRules: input.foodRules,
       nowIso: input.nowIso
     });
 

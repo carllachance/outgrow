@@ -14,6 +14,13 @@ export interface OnboardingState {
   supportTier: SupportTier;
 }
 
+export interface FoodRulesState {
+  dietaryDefaults: Array<'gluten_free' | 'vegetarian' | 'dairy_light'>;
+  standingOrders: string[];
+  ingredientExclusions: string[];
+  allergies: string[];
+}
+
 export interface JournalEntry {
   id: string;
   date: string;
@@ -149,4 +156,5 @@ export interface AppState {
   communityShares: CommunityShare[];
   insightSupportLinks: InsightSupportLink[];
   safety: SafetyState;
+  foodRules: FoodRulesState;
 }

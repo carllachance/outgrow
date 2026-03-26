@@ -12,7 +12,7 @@ import {
   suggestRecipeFromPromptWithContext
 } from '../src/domain/meal-planning/aiRecipeSuggestion.js';
 import { InMemoryMealPlanningService } from '../src/domain/meal-planning/service.js';
-import type { PantryItem, Recipe } from '../src/domain/meal-planning/types.js';
+import type { FoodRules, PantryItem, Recipe } from '../src/domain/meal-planning/types.js';
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) throw new Error(message);
@@ -80,6 +80,13 @@ const pantry: PantryItem[] = [
     updatedAt: nowIso
   }
 ];
+
+const savedFoodRules: FoodRules = {
+  dietaryDefaults: ['gluten_free'],
+  standingOrders: ['one pot', 'high protein'],
+  ingredientExclusions: ['gluten'],
+  allergies: ['asparagus']
+};
 
 test('meal plan entries keep recipe snapshot without duplicating full recipe', () => {
   const entry = createMealPlanEntry({
@@ -311,4 +318,133 @@ test('more-like-this feedback increases style similarity without exact duplicate
 
   assert(next.recipe.title !== first.recipe.title, 'more-like-this should avoid near-duplicate title');
   assert(next.recipe.tags.some((tag) => first.recipe.tags.includes(tag)), 'more-like-this should keep a similar style signal');
+});
+
+test('weekly success meal cues softly influence recipe style and provide transparent steering text', () => {
+  const context = createRecipeSuggestionContext('dinner idea');
+  const result = suggestRecipeFromPromptWithContext({
+    prompt: 'dinner idea',
+    context,
+    weeklySuccessText: 'This week success looks like easy dinners with less cleanup and cozy meals.',
+    nowIso
+  });
+
+  const methodTag = result.recipe.tags[2];
+  assert(['one pot', 'sheet pan', 'skillet'].includes(methodTag), 'cleanup cue should steer toward lower-cleanup methods');
+  assert((result.context.lastSteeringSignals?.length ?? 0) > 0, 'major steering cues should be explainable');
+});
+
+test('non-food weekly success text does not materially distort recipe suggestions', () => {
+  const prompt = 'quick dinner';
+  const base = suggestRecipeFromPromptWithContext({
+    prompt,
+    context: createRecipeSuggestionContext(prompt),
+    nowIso
+  });
+
+  const nonFood = suggestRecipeFromPromptWithContext({
+    prompt,
+    context: createRecipeSuggestionContext(prompt),
+    weeklySuccessText: 'This week success looks like finishing my slide deck and inbox cleanup.',
+    nowIso
+  });
+
+  assert(base.recipe.title === nonFood.recipe.title, 'non-food weekly text should not alter generated suggestion');
+});
+
+test('explicit recipe feedback stays stronger than weekly success influence', () => {
+  let context = createRecipeSuggestionContext('quick dinner');
+  const first = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context,
+    weeklySuccessText: 'This week success looks like cozy comfort meals.',
+    nowIso
+  });
+  context = first.context;
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context,
+    weeklySuccessText: 'This week success looks like easy cleanup and one-pan nights.',
+    feedback: { type: 'more_like_this', recipe: first.recipe },
+    nowIso
+  });
+
+  assert(next.recipe.tags.some((tag) => first.recipe.tags.includes(tag)), 'explicit feedback should keep stronger style continuity');
+});
+
+test('hard restrictions are always enforced in generated recipes', () => {
+  const result = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context: createRecipeSuggestionContext('quick dinner'),
+    foodRules: savedFoodRules,
+    nowIso
+  });
+
+  const ingredientKeys = result.recipe.ingredients.map((ingredient) => normalizeIngredientAlias(ingredient.itemKey));
+  assert(!ingredientKeys.includes('asparagus'), 'allergy ingredient should never appear in generated ingredients');
+  assert(!ingredientKeys.includes('orzo') && !ingredientKeys.includes('farro'), 'gluten defaults/restrictions should avoid gluten bases');
+});
+
+test('standing orders bias suggestions while keeping flexibility', () => {
+  const withStandingOrders = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context: createRecipeSuggestionContext('quick dinner'),
+    foodRules: savedFoodRules,
+    nowIso
+  });
+
+  assert(
+    withStandingOrders.recipe.tags[2] === 'one pot' || withStandingOrders.recipe.tags[1] === 'quick',
+    'standing orders should softly bias method/format'
+  );
+});
+
+test('shopping output respects hard restrictions and exclusions', () => {
+  const service = new InMemoryMealPlanningService();
+  const generated = service.saveRecipe(suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context: createRecipeSuggestionContext('quick dinner'),
+    foodRules: savedFoodRules,
+    nowIso
+  }).recipe);
+
+  service.addToPlan({
+    id: 'meal-rules-1',
+    recipeId: generated.id,
+    date: '2026-03-26',
+    mealType: 'dinner',
+    nowIso
+  });
+
+  const shopping = service.recalculateShopping({
+    shoppingListId: 'shop-rules-1',
+    scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
+    foodRules: savedFoodRules,
+    nowIso
+  });
+
+  assert(shopping.items.every((item) => item.itemKey !== 'asparagus'), 'shopping should not include allergy items');
+});
+
+test('feedback loops continue honoring saved food rules', () => {
+  let context = createRecipeSuggestionContext('quick dinner');
+  const first = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context,
+    foodRules: savedFoodRules,
+    nowIso
+  });
+  context = first.context;
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context,
+    feedback: { type: 'more_like_this', recipe: first.recipe },
+    foodRules: savedFoodRules,
+    nowIso
+  });
+
+  const ingredientKeys = next.recipe.ingredients.map((ingredient) => normalizeIngredientAlias(ingredient.itemKey));
+  assert(!ingredientKeys.includes('asparagus'), 'follow-up suggestions should still enforce hard restrictions');
 });

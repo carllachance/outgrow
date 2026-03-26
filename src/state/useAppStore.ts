@@ -68,6 +68,21 @@ export const useAppStore = () => {
       updateOnboarding: (partial: Partial<AppState['onboarding']>) => {
         persist({ ...state, onboarding: { ...state.onboarding, ...partial } });
       },
+      updateFoodRules: (partial: Partial<AppState['foodRules']>) => {
+        const normalizeList = (entries: string[] | undefined): string[] | undefined => entries
+          ?.map((entry) => entry.trim())
+          .filter(Boolean);
+        persist({
+          ...state,
+          foodRules: {
+            ...state.foodRules,
+            ...partial,
+            standingOrders: normalizeList(partial.standingOrders) ?? state.foodRules.standingOrders,
+            ingredientExclusions: normalizeList(partial.ingredientExclusions) ?? state.foodRules.ingredientExclusions,
+            allergies: normalizeList(partial.allergies) ?? state.foodRules.allergies
+          }
+        });
+      },
       saveTodaySuccess: (date: string, statement: string) => {
         const trimmedStatement = statement.trim();
         if (!trimmedStatement) return 'Write your own success definition before saving.';

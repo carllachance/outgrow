@@ -7,6 +7,7 @@ import {
 } from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe } from '../domain/meal-planning/types';
+import { useAppStore } from '../state/useAppStore';
 
 const nowIso = '2026-03-26T12:00:00.000Z';
 const todayDate = '2026-03-26';
@@ -51,6 +52,7 @@ const quickPrompts = [
 ];
 
 export const MealPlannerScreen = () => {
+  const { state, updateFoodRules } = useAppStore();
   const service = useMemo(() => {
     const next = new InMemoryMealPlanningService();
     next.saveRecipe(starterRecipe);
@@ -65,6 +67,8 @@ export const MealPlannerScreen = () => {
   const [actionMessage, setActionMessage] = useState('');
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
   const [suggestionContext, setSuggestionContext] = useState(() => createRecipeSuggestionContext(prompt));
+  const weeklySuccessText = state.onboarding.weeklyLens;
+  const foodRules = state.foodRules;
 
   const updatePantryStatus = (itemKey: string, status: PantryStatus) => {
     setPantryItems((current) => current.map((item) => (item.itemKey === itemKey ? { ...item, status, updatedAt: nowIso } : item)));
@@ -76,6 +80,7 @@ export const MealPlannerScreen = () => {
       scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
       pantryItems,
       stapleItemKeys: ['salt', 'pepper', 'olive_oil'],
+      foodRules,
       nowIso
     });
 
@@ -97,6 +102,8 @@ export const MealPlannerScreen = () => {
     const suggested = suggestRecipeFromPromptWithContext({
       prompt,
       context: suggestionContext,
+      weeklySuccessText,
+      foodRules,
       feedback: feedback === 'neutral' ? undefined : { type: feedback, recipe },
       nowIso
     });
@@ -106,17 +113,19 @@ export const MealPlannerScreen = () => {
     setRecipe(savedDraft);
     setServings(savedDraft.servingsDefault || servings);
 
+    const steeringNote = suggested.context.lastSteeringSignals?.[0] ? ` ${suggested.context.lastSteeringSignals[0]}` : '';
+
     if (feedback === 'not_for_me') {
-      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.`);
+      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.${steeringNote}`);
       return;
     }
 
     if (feedback === 'more_like_this') {
-      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.`);
+      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.${steeringNote}`);
       return;
     }
 
-    setActionMessage(`Draft ready: ${savedDraft.title}. You can keep iterating, add it to plan, shop, or keep it in recipes.`);
+    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} You can keep iterating, add it to plan, shop, or keep it in recipes.`);
   };
 
   const handleKeepRecipe = () => {
@@ -206,6 +215,51 @@ export const MealPlannerScreen = () => {
         <div className="meal-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest recipe</button>
         </div>
+      </Card>
+
+      <Card title="Food standing orders + restrictions">
+        <label>
+          Dietary defaults
+          <div className="meal-actions">
+            <button type="button" onClick={() => updateFoodRules({ dietaryDefaults: foodRules.dietaryDefaults.includes('gluten_free') ? foodRules.dietaryDefaults.filter((rule) => rule !== 'gluten_free') : [...foodRules.dietaryDefaults, 'gluten_free'] })}>
+              {foodRules.dietaryDefaults.includes('gluten_free') ? '✓ Gluten-free default' : 'Gluten-free default'}
+            </button>
+            <button type="button" onClick={() => updateFoodRules({ dietaryDefaults: foodRules.dietaryDefaults.includes('vegetarian') ? foodRules.dietaryDefaults.filter((rule) => rule !== 'vegetarian') : [...foodRules.dietaryDefaults, 'vegetarian'] })}>
+              {foodRules.dietaryDefaults.includes('vegetarian') ? '✓ Vegetarian default' : 'Vegetarian default'}
+            </button>
+            <button type="button" onClick={() => updateFoodRules({ dietaryDefaults: foodRules.dietaryDefaults.includes('dairy_light') ? foodRules.dietaryDefaults.filter((rule) => rule !== 'dairy_light') : [...foodRules.dietaryDefaults, 'dairy_light'] })}>
+              {foodRules.dietaryDefaults.includes('dairy_light') ? '✓ Dairy-light default' : 'Dairy-light default'}
+            </button>
+          </div>
+        </label>
+        <label>
+          Standing orders (comma separated)
+          <input
+            type="text"
+            value={foodRules.standingOrders.join(', ')}
+            onChange={(event) => updateFoodRules({ standingOrders: event.target.value.split(',') })}
+            placeholder="ex: high protein, one-pan, pantry-first"
+          />
+        </label>
+        <label>
+          Ingredient exclusions (hard)
+          <input
+            type="text"
+            value={foodRules.ingredientExclusions.join(', ')}
+            onChange={(event) => updateFoodRules({ ingredientExclusions: event.target.value.split(',') })}
+            placeholder="ex: gluten, mushrooms"
+          />
+        </label>
+        <label>
+          Allergies (hard)
+          <input
+            type="text"
+            value={foodRules.allergies.join(', ')}
+            onChange={(event) => updateFoodRules({ allergies: event.target.value.split(',') })}
+            placeholder="ex: asparagus, shrimp"
+          />
+        </label>
+        <p className="muted">Hard rules are always enforced in suggestions and shopping. Standing orders remain defaults unless your prompt or explicit feedback asks otherwise.</p>
       </Card>
 
       <Card title={recipe.title}>
