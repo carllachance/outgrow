@@ -589,9 +589,9 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   padding: 0;
   text-align: left;
   color: #2f3930;
-  font-family: 'Newsreader', Georgia, serif;
-  font-size: 1.42rem;
-  line-height: 1.32;
+  font-size: 1.06rem;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .today-success-input {
@@ -645,6 +645,11 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   font-weight: 550;
 }
 
+.stretch-row-link {
+  margin-top: 0;
+  text-decoration: none;
+}
+
 .stretch-row-inline {
   border-top: 1px solid rgba(166, 151, 123, 0.24);
   padding: 10px 14px 12px;
@@ -654,6 +659,12 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 
 .stretch-inline-actions {
   margin-top: 2px;
+}
+
+.stretch-inline-actions .button-link {
+  width: auto;
+  margin: 0;
+  padding: 9px 12px;
 }
 
 .today-longer-arc {

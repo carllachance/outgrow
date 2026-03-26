@@ -1,11 +1,16 @@
 import { FormEvent, useState } from 'react';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { buildDayContexts } from '../state/insightProvenance';
 
 export const JournalScreen = () => {
   const { state, addJournalEntry, addReflection } = useStore();
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const focusedDate = query.get('date') || new Date().toISOString().slice(0, 10);
+  const focusedPlanPrefix = `Today plan (${focusedDate}):`;
+  const focusedPlan = state.journalEntries.find((journalEntry) => journalEntry.content.startsWith(focusedPlanPrefix));
   const [entry, setEntry] = useState('');
   const [worked, setWorked] = useState('');
   const [didntHold, setDidntHold] = useState('');
@@ -37,6 +42,18 @@ export const JournalScreen = () => {
     <div className="screen">
       <h1>Journal</h1>
       <p className="muted">Freeform reflections for hard days, good days, and everything in between.</p>
+      {query.get('focus') === 'today-plan' ? (
+        <Card title="Today's journal plan">
+          {focusedPlan ? (
+            <>
+              <p className="muted">Saved from Today.</p>
+              <p>{focusedPlan.content.replace(focusedPlanPrefix, '').trim()}</p>
+            </>
+          ) : (
+            <p className="muted">No journal plan has been saved for this date yet. Use “Plan this in Journal” on Today first.</p>
+          )}
+        </Card>
+      ) : null}
       <Card title="Freeform journaling">
         <p className="muted">Try: Write what&apos;s on your mind, what brings you joy, or brag about yourself.</p>
         <form onSubmit={submitEntry}>

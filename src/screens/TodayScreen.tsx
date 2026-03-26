@@ -1,32 +1,34 @@
 import { Link } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
 type StretchGoal = {
   id: string;
-  kind: 'simple' | 'input';
+  kind: 'action' | 'input' | 'link';
   label: string;
+  actionLabel?: string;
+  to?: string;
   support?: string;
 };
 
 export const TodayScreen = () => {
-  const { state, addReturnMoment, saveTodaySuccess } = useStore();
+  const { state, addJournalEntry, addReturnMoment, saveTodaySuccess } = useStore();
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
   const [todaySuccessMessage, setTodaySuccessMessage] = useState('');
+  const [resetWalkSecondsRemaining, setResetWalkSecondsRemaining] = useState(0);
 
   const todayDateKey = new Date().toISOString().slice(0, 10);
   const savedTodaySuccess = state.todaySuccessByDate[todayDateKey] ?? '';
+  const todayPlanPrefix = `Today plan (${todayDateKey}):`;
+  const hasTodayJournalPlan = state.journalEntries.some((entry) => entry.content.startsWith(todayPlanPrefix));
   const [todaySuccessDraft, setTodaySuccessDraft] = useState(savedTodaySuccess);
   const [isEditingTodaySuccess, setIsEditingTodaySuccess] = useState(false);
-
-  const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work.';
-  const currentFocus = state.onboarding.currentFocus || 'Keep it honest and doable.';
 
   const recentWin = state.returnMoments[0]?.note.replace(/^Tonight note:\s*/i, '');
   const recentJournalTheme = state.journalEntries[0]?.content;
@@ -49,9 +51,10 @@ export const TodayScreen = () => {
     () => [
       {
         id: 'reset-walk',
-        kind: 'simple',
+        kind: 'action',
         label: 'Add a short reset walk',
-        support: 'If it helps, a few minutes outside can reset your pace.',
+        support: 'A few minutes outside can reset your pace.',
+        actionLabel: 'Start 10-minute timer',
       },
       {
         id: 'note-tonight',
@@ -61,13 +64,28 @@ export const TodayScreen = () => {
       },
       {
         id: 'kind-visit',
-        kind: 'simple',
+        kind: 'link',
         label: 'Open Kind for a grounding minute',
-        support: 'Kind is there when you want a gentle reset.',
+        to: '/kind-words',
       },
     ],
     [],
   );
+
+  useEffect(() => {
+    if (resetWalkSecondsRemaining <= 0) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setResetWalkSecondsRemaining((seconds) => (seconds > 0 ? seconds - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resetWalkSecondsRemaining]);
+
+  const startResetWalkTimer = () => {
+    setResetWalkSecondsRemaining(10 * 60);
+    setInlineMessage('10-minute timer started.');
+  };
 
   const saveTodaySuccessDraft = (closeCard = true) => {
     const result = saveTodaySuccess(todayDateKey, todaySuccessDraft);
@@ -95,6 +113,20 @@ export const TodayScreen = () => {
     setInlineMessage('Saved for later tonight.');
     setTonightNoteDraft('');
     setExpandedStretchId(null);
+  };
+
+  const planInJournal = () => {
+    const planSource = savedTodaySuccess || todaySuccessDraft;
+    if (!planSource.trim()) {
+      setTodaySuccessMessage('Save today\'s success statement first.');
+      return;
+    }
+    const result = addJournalEntry({ type: 'freeform', content: `${todayPlanPrefix} ${planSource.trim()}` });
+    if (result) {
+      setTodaySuccessMessage(result);
+      return;
+    }
+    setTodaySuccessMessage('Saved to Journal. You can open today\'s journal plan below.');
   };
 
   return (
@@ -180,9 +212,15 @@ export const TodayScreen = () => {
         )}
 
         <div className="inline-actions today-primary-actions">
-          <Link className="button-link" to="/journal">
-            Plan this in Journal
-          </Link>
+          {hasTodayJournalPlan ? (
+            <Link className="button-link" to={`/journal?focus=today-plan&date=${todayDateKey}`}>
+              Open today&apos;s journal plan
+            </Link>
+          ) : (
+            <button type="button" className="button-link" onClick={planInJournal}>
+              Plan this in Journal
+            </button>
+          )}
         </div>
 
         {todaySuccessMessage ? <p className="panel-copy panel-copy-support">{todaySuccessMessage}</p> : null}
@@ -190,39 +228,43 @@ export const TodayScreen = () => {
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>
 
-      <section className="chapter today-stretch" aria-labelledby="stretch-title">
+      <section className="chapter today-stretch" aria-label="If it helps">
         <p className="panel-kicker">If it helps</p>
-        <h3 id="stretch-title">Supportive options</h3>
-        <div className="stretch-list" role="list" aria-label="Supportive options">
+        <div className="stretch-list" role="list" aria-label="Optional support actions">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;
+            const minutes = Math.floor(resetWalkSecondsRemaining / 60);
+            const seconds = String(resetWalkSecondsRemaining % 60).padStart(2, '0');
             return (
               <article key={goal.id} className={`stretch-row${isExpanded ? ' expanded' : ''}`} role="listitem">
-                <button
-                  type="button"
-                  className="stretch-row-trigger"
-                  onClick={() => {
-                    setInlineMessage('');
-                    setExpandedStretchId((current) => (current === goal.id ? null : goal.id));
-                  }}
-                  aria-expanded={isExpanded}
-                >
-                  <span>{goal.label}</span>
-                </button>
+                {goal.kind === 'link' && goal.to ? (
+                  <Link className="stretch-row-trigger stretch-row-link" to={goal.to}>
+                    <span>{goal.label}</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="stretch-row-trigger"
+                    onClick={() => {
+                      setInlineMessage('');
+                      setExpandedStretchId((current) => (current === goal.id ? null : goal.id));
+                    }}
+                    aria-expanded={isExpanded}
+                  >
+                    <span>{goal.label}</span>
+                  </button>
+                )}
 
                 {isExpanded ? (
                   <div className="stretch-row-inline">
                     {goal.support ? <p className="action-support">{goal.support}</p> : null}
-                    {goal.kind === 'simple' ? (
-                      goal.id === 'kind-visit' ? (
-                        <div className="inline-actions stretch-inline-actions">
-                          <Link className="button-link" to="/kind-words">
-                            Open Kind
-                          </Link>
-                        </div>
-                      ) : (
-                        <p className="panel-copy">Available whenever you want it.</p>
-                      )
+                    {goal.kind === 'action' ? (
+                      <div className="inline-actions stretch-inline-actions">
+                        <button type="button" className="button-link" onClick={startResetWalkTimer}>
+                          {goal.actionLabel}
+                        </button>
+                        {resetWalkSecondsRemaining > 0 ? <p className="panel-copy">{minutes}:{seconds} remaining</p> : null}
+                      </div>
                     ) : (
                       <div className="today-inline-note">
                         <label htmlFor="tonight-note" className="sr-only">Tonight note</label>
@@ -245,11 +287,6 @@ export const TodayScreen = () => {
           })}
         </div>
         {inlineMessage ? <p className="panel-copy">{inlineMessage}</p> : null}
-      </section>
-
-      <section className="chapter today-longer-arc" aria-label="Bigger picture">
-        <p className="panel-kicker">What this supports</p>
-        <p className="today-longer-arc-copy">{weeklyLens || currentFocus}</p>
       </section>
     </div>
   );
