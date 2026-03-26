@@ -35,28 +35,33 @@ export interface ReturnMoment {
   note: string;
 }
 
-export type MealEventType = 'meal' | 'snack' | 'treat' | 'drink';
-export type CompositionTag =
-  | 'protein'
-  | 'produce'
-  | 'fiber'
-  | 'starch'
-  | 'sweets'
-  | 'fried_heavy'
-  | 'ultra_processed'
-  | 'alcohol'
-  | 'caffeine';
-export type PortionFeel = 'light' | 'sensible' | 'heavy';
-export type MealContext = 'hungry' | 'convenience' | 'stress' | 'social' | 'celebration' | 'bored' | 'routine';
+export type TimeMode = 'soft' | 'exact' | 'unknown';
+export type MealKind = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'drink' | 'unknown';
+export type InterpretationConfidence = 'high' | 'medium' | 'low';
+export type FoodComponentKind = 'main' | 'ingredient' | 'side' | 'drink' | 'condiment' | 'unknown';
+
+export interface FoodComponent {
+  label: string;
+  kind?: FoodComponentKind;
+  quantityText?: string;
+}
 
 export interface MealLogEntry {
   id: string;
-  timestamp: string;
-  eventType: MealEventType;
-  compositionTags: CompositionTag[];
-  portionFeel: PortionFeel;
-  context?: MealContext;
-  note?: string;
+  createdAt: string;
+  entryDate: string;
+  timeMode: TimeMode;
+  softTimeLabel?: string;
+  timeRangeStart?: string;
+  timeRangeEnd?: string;
+  exactTime?: string;
+  mealKind?: MealKind;
+  rawText: string;
+  interpretedSummary?: string;
+  components?: FoodComponent[];
+  interpretationConfidence?: InterpretationConfidence;
+  source: 'manual';
+  wasEditedAfterInterpretation: boolean;
 }
 
 export interface PrivacySettings {

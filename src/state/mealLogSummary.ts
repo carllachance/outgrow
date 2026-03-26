@@ -1,19 +1,17 @@
-import type { CompositionTag, MealContext, MealLogEntry, SafetyState } from '../types';
+import type { MealKind, MealLogEntry, SafetyState } from '../types';
 
 export interface WeeklyMealSummary {
   totalEntries: number;
-  treatCount: number;
-  heavyFeelCount: number;
-  stressContextCount: number;
-  proteinProduceConsistency: 'high' | 'medium' | 'low';
-  dominantContexts: MealContext[];
-  dominantCompositionThemes: CompositionTag[];
+  lateAfternoonSnacks: number;
+  lateNightSnacks: number;
+  unknownTimeCount: number;
+  dominantMealKinds: MealKind[];
   lines: string[];
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const getDominantValues = <T extends string>(counts: Map<T, number>, maxItems: number): T[] => {
+const getDominantKinds = (counts: Map<MealKind, number>, maxItems: number): MealKind[] => {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .filter(([, count], index, all) => index < maxItems && count > 0 && (index === 0 || count >= all[0][1] - 1))
@@ -26,76 +24,49 @@ export const canViewMealHistory = (safety: SafetyState) => safety.flags.progress
 export const buildWeeklyMealSummary = (entries: MealLogEntry[], nowIso: string = new Date().toISOString()): WeeklyMealSummary => {
   const now = Date.parse(nowIso);
   const weekEntries = entries.filter((entry) => {
-    const timestamp = Date.parse(entry.timestamp);
-    return Number.isFinite(timestamp) && now - timestamp >= 0 && now - timestamp < DAY_MS * 7;
+    const createdAt = Date.parse(entry.createdAt);
+    return Number.isFinite(createdAt) && now - createdAt >= 0 && now - createdAt < DAY_MS * 7;
   });
 
-  const treatCount = weekEntries.filter((entry) => entry.eventType === 'treat').length;
-  const heavyFeelCount = weekEntries.filter((entry) => entry.portionFeel === 'heavy').length;
-  const stressContextCount = weekEntries.filter((entry) => entry.context === 'stress').length;
-  const proteinProduceCount = weekEntries.filter((entry) => entry.compositionTags.includes('protein') && entry.compositionTags.includes('produce')).length;
+  const lateAfternoonSnacks = weekEntries.filter((entry) => entry.mealKind === 'snack' && /late afternoon/i.test(entry.softTimeLabel ?? '')).length;
+  const lateNightSnacks = weekEntries.filter((entry) => entry.mealKind === 'snack' && /late night/i.test(entry.softTimeLabel ?? '')).length;
+  const unknownTimeCount = weekEntries.filter((entry) => entry.timeMode === 'unknown').length;
 
-  const contextCounts = weekEntries.reduce((acc, entry) => {
-    if (entry.context) acc.set(entry.context, (acc.get(entry.context) ?? 0) + 1);
+  const mealKindCounts = weekEntries.reduce((acc, entry) => {
+    const key = entry.mealKind ?? 'unknown';
+    acc.set(key, (acc.get(key) ?? 0) + 1);
     return acc;
-  }, new Map<MealContext, number>());
+  }, new Map<MealKind, number>());
 
-  const tagCounts = weekEntries.reduce((acc, entry) => {
-    entry.compositionTags.forEach((tag) => acc.set(tag, (acc.get(tag) ?? 0) + 1));
-    return acc;
-  }, new Map<CompositionTag, number>());
-
-  const proteinProduceRatio = weekEntries.length ? proteinProduceCount / weekEntries.length : 0;
-  const proteinProduceConsistency: WeeklyMealSummary['proteinProduceConsistency'] = proteinProduceRatio >= 0.6
-    ? 'high'
-    : proteinProduceRatio >= 0.35
-      ? 'medium'
-      : 'low';
-
-  const dominantContexts = getDominantValues(contextCounts, 2);
-  const dominantCompositionThemes = getDominantValues(tagCounts, 3);
+  const dominantMealKinds = getDominantKinds(mealKindCounts, 2);
 
   const lines: string[] = [];
   lines.push(weekEntries.length > 0
-    ? `You logged ${weekEntries.length} food moments this week. One honest entry is enough.`
-    : 'No entries this week yet. One honest entry is enough to restart your pattern view.');
+    ? `You logged ${weekEntries.length} food moments this week. Approximate logs still count.`
+    : 'No entries this week yet. One quick note is enough to restart your pattern view.');
 
-  if (treatCount > 0) {
-    lines.push(`Treats showed up ${treatCount} time${treatCount === 1 ? '' : 's'} — part of a real week, not a problem to solve.`);
+  if (lateAfternoonSnacks > 0) {
+    lines.push(`Late afternoon snacking showed up ${lateAfternoonSnacks} time${lateAfternoonSnacks === 1 ? '' : 's'}.`);
   }
 
-  if (heavyFeelCount > 0) {
-    lines.push(`${heavyFeelCount} entry${heavyFeelCount === 1 ? ' felt' : ' entries felt'} heavy. That is useful context, not a grade.`);
+  if (lateNightSnacks > 0) {
+    lines.push(`Late night snacking appeared ${lateNightSnacks} time${lateNightSnacks === 1 ? '' : 's'} this week.`);
   }
 
-  if (stressContextCount > 0) {
-    lines.push(`Stress was named ${stressContextCount} time${stressContextCount === 1 ? '' : 's'}. Noticing that pattern helps you plan gentler defaults.`);
+  if (unknownTimeCount > 0) {
+    lines.push(`${unknownTimeCount} entr${unknownTimeCount === 1 ? 'y keeps' : 'ies keep'} time open-ended, which is completely okay.`);
   }
 
-  lines.push(
-    proteinProduceConsistency === 'high'
-      ? 'Protein + produce showed up consistently in your logs this week.'
-      : proteinProduceConsistency === 'medium'
-        ? 'Protein + produce appeared sometimes this week — a steady middle ground.'
-        : 'Protein + produce showed up less often this week. Small adjustments can stay simple.'
-  );
-
-  if (dominantContexts.length) {
-    lines.push(`Most common context${dominantContexts.length > 1 ? 's were' : ' was'} ${dominantContexts.join(' and ')}.`);
-  }
-
-  if (dominantCompositionThemes.length) {
-    lines.push(`Common composition themes: ${dominantCompositionThemes.join(', ')}.`);
+  if (dominantMealKinds.length > 0) {
+    lines.push(`Most common entry type${dominantMealKinds.length > 1 ? 's were' : ' was'} ${dominantMealKinds.join(' and ')}.`);
   }
 
   return {
     totalEntries: weekEntries.length,
-    treatCount,
-    heavyFeelCount,
-    stressContextCount,
-    proteinProduceConsistency,
-    dominantContexts,
-    dominantCompositionThemes,
+    lateAfternoonSnacks,
+    lateNightSnacks,
+    unknownTimeCount,
+    dominantMealKinds,
     lines
   };
 };
