@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../components/Card';
-import { suggestRecipeFromPrompt } from '../domain/meal-planning/aiRecipeSuggestion';
+import {
+  createRecipeSuggestionContext,
+  suggestRecipeFromPromptWithContext,
+  type RecipeSuggestionFeedback
+} from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe } from '../domain/meal-planning/types';
 
@@ -60,6 +64,7 @@ export const MealPlannerScreen = () => {
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(defaultPantry);
   const [actionMessage, setActionMessage] = useState('');
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
+  const [suggestionContext, setSuggestionContext] = useState(() => createRecipeSuggestionContext(prompt));
 
   const updatePantryStatus = (itemKey: string, status: PantryStatus) => {
     setPantryItems((current) => current.map((item) => (item.itemKey === itemKey ? { ...item, status, updatedAt: nowIso } : item)));
@@ -83,17 +88,35 @@ export const MealPlannerScreen = () => {
     return shopping.items.length;
   };
 
-  const handleSuggestRecipe = () => {
+  const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral') => {
     if (!prompt.trim()) {
       setActionMessage('Share what you need tonight so we can draft a recipe.');
       return;
     }
 
-    const suggested = suggestRecipeFromPrompt(prompt, nowIso);
-    const savedDraft = service.saveRecipe(suggested);
+    const suggested = suggestRecipeFromPromptWithContext({
+      prompt,
+      context: suggestionContext,
+      feedback: feedback === 'neutral' ? undefined : { type: feedback, recipe },
+      nowIso
+    });
+
+    const savedDraft = service.saveRecipe(suggested.recipe);
+    setSuggestionContext(suggested.context);
     setRecipe(savedDraft);
     setServings(savedDraft.servingsDefault || servings);
-    setActionMessage(`Draft ready: ${savedDraft.title}. You can use it tonight, add it to plan, shop, or keep it in recipes.`);
+
+    if (feedback === 'not_for_me') {
+      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.`);
+      return;
+    }
+
+    if (feedback === 'more_like_this') {
+      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.`);
+      return;
+    }
+
+    setActionMessage(`Draft ready: ${savedDraft.title}. You can keep iterating, add it to plan, shop, or keep it in recipes.`);
   };
 
   const handleKeepRecipe = () => {
@@ -167,17 +190,21 @@ export const MealPlannerScreen = () => {
           <textarea
             rows={3}
             value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={(event) => {
+              const nextPrompt = event.target.value;
+              setPrompt(nextPrompt);
+              setSuggestionContext(createRecipeSuggestionContext(nextPrompt));
+            }}
             placeholder="Example: vegetarian dinner with pantry staples, 30 minutes max"
           />
         </label>
         <div className="meal-actions">
           {quickPrompts.map((example) => (
-            <button key={example} type="button" onClick={() => setPrompt(example)}>{example}</button>
+            <button key={example} type="button" onClick={() => { setPrompt(example); setSuggestionContext(createRecipeSuggestionContext(example)); }}>{example}</button>
           ))}
         </div>
         <div className="meal-actions">
-          <button type="button" onClick={handleSuggestRecipe}>Suggest recipe</button>
+          <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest recipe</button>
         </div>
       </Card>
 
@@ -204,6 +231,9 @@ export const MealPlannerScreen = () => {
           <div className="meal-actions">
             <button type="button" onClick={handleUseTonight}>Use tonight</button>
             <button type="button" onClick={handleAddToPlan}>Add to plan</button>
+            <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
+            <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
+            <button type="button" onClick={() => handleSuggestRecipe('not_for_me')}>Not for me</button>
             <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
             <button type="button" onClick={handleRecipeCard}>Print / share</button>
             <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>

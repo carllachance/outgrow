@@ -145,3 +145,14 @@ export interface ShoppingExplanation {
   };
   finalPurchaseState: ShoppingListItem['purchaseState'];
 }
+
+
+export interface RecipeSuggestionSessionContext {
+  promptSignature: string;
+  iterations: number;
+  recentSuggestionSignatures: string[];
+  rejectedSignatures: string[];
+  positiveExampleSignatures: string[];
+  preferredTokens: string[];
+  avoidedTokens: string[];
+}
