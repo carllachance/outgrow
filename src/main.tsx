@@ -13,6 +13,8 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { DayDetailScreen } from './screens/DayDetailScreen';
 import { InsightDetailScreen } from './screens/InsightDetailScreen';
 import { InsightSupportingDaysScreen } from './screens/InsightSupportingDaysScreen';
+import { ReflectionHistoryScreen } from './screens/ReflectionHistoryScreen';
+import { ReflectionDetailScreen } from './screens/ReflectionDetailScreen';
 import { AppStoreProvider } from './state/AppStoreContext';
 import './styles.css';
 
@@ -27,6 +29,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/growth" element={<GrowthScreen />} />
             <Route path="/meals" element={<MealLogScreen />} />
             <Route path="/journal" element={<JournalScreen />} />
+            <Route path="/journal/reflections" element={<ReflectionHistoryScreen />} />
+            <Route path="/journal/reflections/:reflectionId" element={<ReflectionDetailScreen />} />
             <Route path="/privacy" element={<PrivacyScreen />} />
             <Route path="/kind-words" element={<KindWordsScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
