@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../components/Card';
+import { suggestRecipeFromPrompt } from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe } from '../domain/meal-planning/types';
 
 const nowIso = '2026-03-26T12:00:00.000Z';
+const todayDate = '2026-03-26';
 
 const starterRecipe: Recipe = {
   id: 'recipe-weeknight-sheet-pan',
@@ -17,10 +19,10 @@ const starterRecipe: Recipe = {
   cookTimeMin: 25,
   totalTimeMin: 35,
   ingredients: [
-    { id: 'ing-1', rawText: '2 chicken thighs', itemKey: 'chicken_thigh', displayName: 'Chicken thighs', quantity: 2, unit: 'each', optional: false },
+    { id: 'ing-1', rawText: '2 each chicken thighs', itemKey: 'chicken_thigh', displayName: 'Chicken thighs', quantity: 2, unit: 'each', optional: false },
     { id: 'ing-2', rawText: '2 tbsp olive oil', itemKey: 'olive_oil', displayName: 'Olive oil', quantity: 2, unit: 'tbsp', optional: false },
-    { id: 'ing-3', rawText: '1 bell pepper, sliced', itemKey: 'capsicum', displayName: 'Bell pepper', quantity: 1, unit: 'each', optional: false },
-    { id: 'ing-4', rawText: '1 lemon (optional)', itemKey: 'lemon', displayName: 'Lemon', quantity: 1, unit: 'each', optional: true }
+    { id: 'ing-3', rawText: '1 each bell pepper', itemKey: 'capsicum', displayName: 'Bell pepper', quantity: 1, unit: 'each', optional: false },
+    { id: 'ing-4', rawText: '1 each lemon', itemKey: 'lemon', displayName: 'Lemon', quantity: 1, unit: 'each', optional: true }
   ],
   instructions: [
     { step: 1, text: 'Heat oven to 425°F and prep sheet pan.' },
@@ -38,74 +40,11 @@ const defaultPantry = [
   { id: 'pantry-oil', itemKey: 'olive_oil', displayName: 'Olive oil', status: 'low', staple: true, updatedAt: nowIso }
 ] satisfies PantryItem[];
 
-const tokenizePrompt = (prompt: string) => (
-  prompt
-    .toLowerCase()
-    .split(/[^a-z]+/)
-    .filter((token) => token.length > 2)
-);
-
-const hasAnyToken = (tokens: string[], options: string[]) => options.some((option) => tokens.includes(option));
-
-const normalizeItemKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-
-const suggestRecipeFromPrompt = (prompt: string): Recipe => {
-  const tokens = tokenizePrompt(prompt);
-  const wantsVegetarian = hasAnyToken(tokens, ['vegetarian', 'veggie', 'plant', 'meatless']);
-  const wantsQuick = hasAnyToken(tokens, ['quick', 'fast', 'easy', 'simple', 'busy']);
-  const wantsComfort = hasAnyToken(tokens, ['comfort', 'cozy', 'creamy']);
-  const wantsSpicy = hasAnyToken(tokens, ['spicy', 'hot', 'chili']);
-
-  const baseProtein = wantsVegetarian ? 'chickpeas' : 'chicken breast';
-  const baseTitle = wantsVegetarian ? 'Veggie Bowl' : 'Protein Bowl';
-  const flavor = wantsComfort ? 'Creamy Herb' : wantsSpicy ? 'Spicy Lime' : 'Lemon Garlic';
-  const totalTimeMin = wantsQuick ? 25 : 40;
-  const cookTimeMin = wantsQuick ? 18 : 30;
-
-  const ingredientNames = [
-    baseProtein,
-    'olive oil',
-    'garlic',
-    wantsComfort ? 'greek yogurt' : 'lemon',
-    wantsSpicy ? 'chili flakes' : 'paprika',
-    'broccoli',
-    'rice'
-  ];
-
-  return {
-    id: `recipe-${crypto.randomUUID()}`,
-    title: `${flavor} ${baseTitle}`,
-    description: `AI suggestion based on: "${prompt.trim()}"`,
-    source: { type: 'manual', label: 'Outgrow AI planner' },
-    status: 'draft',
-    version: 1,
-    servingsDefault: 2,
-    prepTimeMin: totalTimeMin - cookTimeMin,
-    cookTimeMin,
-    totalTimeMin,
-    ingredients: ingredientNames.map((name, index) => ({
-      id: `ing-${index + 1}`,
-      rawText: index === 0 ? `2 cups ${name}` : `1 ${index < 2 ? 'tbsp' : 'cup'} ${name}`,
-      itemKey: normalizeItemKey(name),
-      displayName: name
-        .split(' ')
-        .map((part) => part[0].toUpperCase() + part.slice(1))
-        .join(' '),
-      quantity: index === 0 ? 2 : 1,
-      unit: index < 2 ? 'tbsp' : 'cup',
-      optional: index >= 3
-    })),
-    instructions: [
-      { step: 1, text: 'Prep produce, protein, and aromatics.' },
-      { step: 2, text: 'Cook the base grain while roasting or sautéing vegetables.' },
-      { step: 3, text: `Season and cook ${baseProtein} until tender.` },
-      { step: 4, text: `Finish with ${flavor.toLowerCase()} sauce and serve warm.` }
-    ],
-    tags: [wantsVegetarian ? 'vegetarian' : 'protein-forward', wantsQuick ? 'quick' : 'batch-cook'],
-    createdAt: nowIso,
-    updatedAt: nowIso
-  };
-};
+const quickPrompts = [
+  'High-protein dinner that is quick for a weeknight',
+  'Vegetarian pantry dinner in 30 minutes',
+  'Comforting but light dinner with leftovers'
+];
 
 export const MealPlannerScreen = () => {
   const service = useMemo(() => {
@@ -115,7 +54,7 @@ export const MealPlannerScreen = () => {
   }, []);
 
   const [recipe, setRecipe] = useState(starterRecipe);
-  const [prompt, setPrompt] = useState('High-protein dinner that is quick for a weeknight');
+  const [prompt, setPrompt] = useState(quickPrompts[0]);
   const [planDate, setPlanDate] = useState('2026-03-27');
   const [servings, setServings] = useState(2);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(defaultPantry);
@@ -126,27 +65,50 @@ export const MealPlannerScreen = () => {
     setPantryItems((current) => current.map((item) => (item.itemKey === itemKey ? { ...item, status, updatedAt: nowIso } : item)));
   };
 
+  const refreshShopping = () => {
+    const shopping = service.recalculateShopping({
+      shoppingListId: 'shopping-week-1',
+      scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
+      pantryItems,
+      stapleItemKeys: ['salt', 'pepper', 'olive_oil'],
+      nowIso
+    });
+
+    const lines = shopping.explanations.map((explanation) => {
+      const meals = explanation.becauseMeals.map((meal) => meal.recipeTitle).join(', ');
+      return `${explanation.displayName}: ${explanation.finalPurchaseState} (from ${meals}; pantry ${explanation.pantryImpact.pantryStatus})`;
+    });
+
+    setLastShoppingExplanation(lines);
+    return shopping.items.length;
+  };
+
   const handleSuggestRecipe = () => {
     if (!prompt.trim()) {
-      setActionMessage('Add what you are craving so AI can suggest a recipe.');
+      setActionMessage('Share what you need tonight so we can draft a recipe.');
       return;
     }
 
-    const suggested = suggestRecipeFromPrompt(prompt);
-    const saved = service.saveRecipe(suggested);
-    setRecipe(saved);
-    setServings(saved.servingsDefault || servings);
-    setActionMessage(`Suggested recipe ready: ${saved.title}. You can now add it to plan, shop, or print.`);
+    const suggested = suggestRecipeFromPrompt(prompt, nowIso);
+    const savedDraft = service.saveRecipe(suggested);
+    setRecipe(savedDraft);
+    setServings(savedDraft.servingsDefault || servings);
+    setActionMessage(`Draft ready: ${savedDraft.title}. You can use it tonight, add it to plan, shop, or keep it in recipes.`);
   };
 
-  const handleSave = () => {
+  const handleKeepRecipe = () => {
+    if (recipe.status === 'saved') {
+      setActionMessage(`Already in recipes as v${recipe.version}.`);
+      return;
+    }
+
     const next = service.updateRecipe({
       recipeId: recipe.id,
       baseVersion: recipe.version,
-      patch: { notes: [{ id: 'note-1', kind: 'system', text: 'Saved from planner screen.' }], status: 'saved' }
+      patch: { notes: [{ id: 'note-1', kind: 'system', text: 'Kept from planner screen.' }], status: 'saved' }
     });
     setRecipe(next);
-    setActionMessage(`Saved recipe snapshot v${next.version}.`);
+    setActionMessage(`Recipe kept in your library as v${next.version}.`);
   };
 
   const handleAddToPlan = () => {
@@ -162,22 +124,25 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Added to plan for ${plan.date} (${plan.mealType}).`);
   };
 
-  const handleRecalculateShopping = () => {
-    const shopping = service.recalculateShopping({
-      shoppingListId: 'shopping-week-1',
-      scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
-      pantryItems,
-      stapleItemKeys: ['salt', 'pepper', 'olive_oil'],
+  const handleUseTonight = () => {
+    const tonightMeal = service.addToPlan({
+      id: `meal-${crypto.randomUUID()}`,
+      recipeId: recipe.id,
+      date: todayDate,
+      mealType: 'dinner',
+      servings,
+      shoppingMode: 'include_missing_only',
+      notes: 'Use tonight from AI planner',
       nowIso
     });
 
-    const lines = shopping.explanations.map((explanation) => {
-      const meals = explanation.becauseMeals.map((meal) => meal.recipeTitle).join(', ');
-      return `${explanation.displayName}: ${explanation.finalPurchaseState} (from ${meals}; pantry ${explanation.pantryImpact.pantryStatus})`;
-    });
+    setPlanDate(todayDate);
+    setActionMessage(`Tonight is set: ${tonightMeal.sourceSnapshot.recipeTitle} added for ${todayDate}.`);
+  };
 
-    setLastShoppingExplanation(lines);
-    setActionMessage(`Shopping list refreshed with ${shopping.items.length} items.`);
+  const handleRecalculateShopping = () => {
+    const count = refreshShopping();
+    setActionMessage(`Shopping list refreshed with ${count} items.`);
   };
 
   const handleRecipeCard = () => {
@@ -193,12 +158,12 @@ export const MealPlannerScreen = () => {
     <section className="screen">
       <header>
         <h1>Meal planner</h1>
-        <p className="muted">Chat with AI for a recipe, then push ingredients into planning and shopping.</p>
+        <p className="muted">Prompt first, then move the draft into tonight, your plan, shopping, or recipe library.</p>
       </header>
 
-      <Card title="Ask AI for a recipe">
+      <Card title="What do you need tonight?">
         <label>
-          What are you in the mood for?
+          Tell the chef what you need
           <textarea
             rows={3}
             value={prompt}
@@ -207,13 +172,19 @@ export const MealPlannerScreen = () => {
           />
         </label>
         <div className="meal-actions">
+          {quickPrompts.map((example) => (
+            <button key={example} type="button" onClick={() => setPrompt(example)}>{example}</button>
+          ))}
+        </div>
+        <div className="meal-actions">
           <button type="button" onClick={handleSuggestRecipe}>Suggest recipe</button>
         </div>
       </Card>
 
       <Card title={recipe.title}>
         <p className="muted">{recipe.description}</p>
-        <p className="muted">{recipe.totalTimeMin} min • {recipe.servingsDefault} servings • v{recipe.version}</p>
+        <p className="muted">{recipe.totalTimeMin} min • {recipe.servingsDefault} servings • {recipe.status} • v{recipe.version}</p>
+        <p className="muted">Source: {recipe.source?.label || 'Unknown source'}</p>
         <div className="stack compact">
           <p className="muted">Ingredients</p>
           <ul className="explanation-list">
@@ -231,10 +202,11 @@ export const MealPlannerScreen = () => {
         <div className="stack compact">
           <p className="muted">Quick actions</p>
           <div className="meal-actions">
-            <button type="button" onClick={handleRecalculateShopping}>Cook tonight</button>
+            <button type="button" onClick={handleUseTonight}>Use tonight</button>
             <button type="button" onClick={handleAddToPlan}>Add to plan</button>
-            <button type="button" onClick={handleSave}>Save</button>
+            <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
             <button type="button" onClick={handleRecipeCard}>Print / share</button>
+            <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>
           </div>
         </div>
         {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
@@ -259,7 +231,7 @@ export const MealPlannerScreen = () => {
 
       <Card title="Why items are on the list">
         {!lastShoppingExplanation.length ? (
-          <p className="muted">Run “Cook tonight” after adding a suggested recipe to refresh shopping explanations.</p>
+          <p className="muted">Use “Refresh shopping” after adding a meal to update explainable shopping output.</p>
         ) : (
           <ul className="explanation-list">
             {lastShoppingExplanation.map((line) => <li key={line}>{line}</li>)}

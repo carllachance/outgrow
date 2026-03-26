@@ -1,4 +1,4 @@
-export type RecipeStatus = 'saved' | 'archived' | 'rejected';
+export type RecipeStatus = 'draft' | 'saved' | 'archived' | 'rejected';
 export type MealStatus = 'planned' | 'cooked' | 'skipped' | 'moved';
 export type ShoppingMode = 'include_all' | 'include_missing_only';
 export type PantryStatus = 'on_hand' | 'low' | 'unknown' | 'not_on_hand';
@@ -24,7 +24,7 @@ export interface Recipe {
   title: string;
   description?: string;
   source?: {
-    type: 'web' | 'manual' | 'imported' | 'shared';
+    type: 'web' | 'manual' | 'imported' | 'shared' | 'generated' | 'ai_generated';
     label?: string;
     url?: string;
   };

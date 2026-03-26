@@ -6,6 +6,7 @@ import {
   normalizeIngredientAlias,
   scaleRecipeIngredients
 } from '../src/domain/meal-planning/derivations.js';
+import { suggestRecipeFromPrompt } from '../src/domain/meal-planning/aiRecipeSuggestion.js';
 import { InMemoryMealPlanningService } from '../src/domain/meal-planning/service.js';
 import type { PantryItem, Recipe } from '../src/domain/meal-planning/types.js';
 
@@ -212,3 +213,53 @@ test('recipe updates are snapshot-aware and reject stale edits', () => {
 });
 
 console.log('All meal planning runtime tests passed.');
+
+
+test('generated suggestions are draft recipes with ai provenance', () => {
+  const draft = suggestRecipeFromPrompt('quick vegetarian spicy dinner', nowIso);
+
+  assert(draft.status === 'draft', 'ai suggestions should start as drafts');
+  assert(draft.source?.type === 'ai_generated', 'ai suggestions should carry ai-generated provenance');
+  assert(draft.source?.label === 'Outgrow AI planner', 'ai suggestion source label should remain explicit');
+});
+
+test('draft recipes can be persisted, planned, and then transitioned to saved', () => {
+  const service = new InMemoryMealPlanningService();
+  const draft = service.saveRecipe(suggestRecipeFromPrompt('quick high protein dinner', nowIso));
+
+  assert(draft.status === 'draft', 'saved draft should remain draft until user keeps it');
+
+  const tonight = service.addToPlan({
+    id: 'meal-draft-1',
+    recipeId: draft.id,
+    date: '2026-03-26',
+    mealType: 'dinner',
+    nowIso
+  });
+
+  const shopping = service.recalculateShopping({
+    shoppingListId: 'shop-draft-1',
+    scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
+    nowIso
+  });
+
+  assert(tonight.recipeId === draft.id, 'draft recipe should be plannable');
+  assert(shopping.items.length > 0, 'draft recipes should flow into shopping');
+
+  const saved = service.updateRecipe({
+    recipeId: draft.id,
+    baseVersion: draft.version,
+    patch: { status: 'saved' }
+  });
+
+  assert(saved.status === 'saved', 'keep/save action should transition draft to saved');
+});
+
+test('generated ingredient structured fields remain consistent with raw text', () => {
+  const draft = suggestRecipeFromPrompt('comforting dinner', nowIso);
+
+  for (const ingredient of draft.ingredients) {
+    const expected = `${ingredient.quantity} ${ingredient.unit} ${ingredient.displayName.toLowerCase()}`;
+    assert(ingredient.rawText.toLowerCase() === expected, `ingredient raw text should match structured quantity/unit: ${ingredient.id}`);
+  }
+});
