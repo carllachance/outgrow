@@ -572,6 +572,28 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   color: #313b33;
 }
 
+.today-intention-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(151, 136, 108, 0.36);
+  background: rgba(255, 252, 247, 0.9);
+}
+
+.today-intention-display {
+  margin: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: #2f3930;
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 1.42rem;
+  line-height: 1.32;
+}
+
 .today-success-input {
   width: 100%;
   margin: 0;
@@ -621,12 +643,6 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   text-align: left;
   color: #2c362d;
   font-weight: 550;
-}
-
-.stretch-row-state {
-  font-size: 0.78rem;
-  color: #6b7268;
-  font-weight: 500;
 }
 
 .stretch-row-inline {
