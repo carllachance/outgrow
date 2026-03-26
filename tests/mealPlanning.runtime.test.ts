@@ -6,7 +6,11 @@ import {
   normalizeIngredientAlias,
   scaleRecipeIngredients
 } from '../src/domain/meal-planning/derivations.js';
-import { suggestRecipeFromPrompt } from '../src/domain/meal-planning/aiRecipeSuggestion.js';
+import {
+  createRecipeSuggestionContext,
+  suggestRecipeFromPrompt,
+  suggestRecipeFromPromptWithContext
+} from '../src/domain/meal-planning/aiRecipeSuggestion.js';
 import { InMemoryMealPlanningService } from '../src/domain/meal-planning/service.js';
 import type { PantryItem, Recipe } from '../src/domain/meal-planning/types.js';
 
@@ -262,4 +266,49 @@ test('generated ingredient structured fields remain consistent with raw text', (
     const expected = `${ingredient.quantity} ${ingredient.unit} ${ingredient.displayName.toLowerCase()}`;
     assert(ingredient.rawText.toLowerCase() === expected, `ingredient raw text should match structured quantity/unit: ${ingredient.id}`);
   }
+});
+
+
+test('iterative suggestions produce distinct draft candidates in one session', () => {
+  let context = createRecipeSuggestionContext('quick vegetarian dinner');
+
+  const first = suggestRecipeFromPromptWithContext({ prompt: 'quick vegetarian dinner', context, nowIso });
+  context = first.context;
+  const second = suggestRecipeFromPromptWithContext({ prompt: 'quick vegetarian dinner', context, nowIso });
+
+  assert(first.recipe.title !== second.recipe.title, 'second suggestion should differ from first draft title');
+  assert(first.recipe.status === 'draft' && second.recipe.status === 'draft', 'iterative suggestions stay in draft state');
+});
+
+test('not-for-me feedback pushes next recommendation away from rejected profile', () => {
+  let context = createRecipeSuggestionContext('quick dinner with protein');
+
+  const first = suggestRecipeFromPromptWithContext({ prompt: 'quick dinner with protein', context, nowIso });
+  context = first.context;
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner with protein',
+    context,
+    feedback: { type: 'not_for_me', recipe: first.recipe },
+    nowIso
+  });
+
+  assert(first.recipe.title !== next.recipe.title, 'rejected recipe should not be resurfaced in the next turn');
+});
+
+test('more-like-this feedback increases style similarity without exact duplicate', () => {
+  let context = createRecipeSuggestionContext('comforting quick dinner');
+
+  const first = suggestRecipeFromPromptWithContext({ prompt: 'comforting quick dinner', context, nowIso });
+  context = first.context;
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'comforting quick dinner',
+    context,
+    feedback: { type: 'more_like_this', recipe: first.recipe },
+    nowIso
+  });
+
+  assert(next.recipe.title !== first.recipe.title, 'more-like-this should avoid near-duplicate title');
+  assert(next.recipe.tags.some((tag) => first.recipe.tags.includes(tag)), 'more-like-this should keep a similar style signal');
 });
