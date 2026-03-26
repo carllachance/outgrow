@@ -5,12 +5,13 @@ import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
 export const TodayScreen = () => {
-  const { state } = useStore();
+  const { state, addReturnMoment } = useStore();
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
   const [selectedAction, setSelectedAction] = useState('meal-intention');
   const [checkedActions, setCheckedActions] = useState<string[]>([]);
-  const [expandedAction, setExpandedAction] = useState<string | null>(null);
+  const [tonightNoteDraft, setTonightNoteDraft] = useState('');
+  const [inlineMessage, setInlineMessage] = useState('');
 
   const weeklyLens = state.onboarding.weeklyLens || 'Returning is the work. Start where you are today.';
   const currentFocus = state.onboarding.currentFocus || 'Showing up counts. Choose one useful thing for today.';
@@ -18,28 +19,52 @@ export const TodayScreen = () => {
     () => [
       {
         id: 'meal-intention',
+        kind: 'simple' as const,
         label: 'Name one meal intention',
         support: 'Write one line for what steady nourishment looks like in your next meal.',
+        actionLabel: 'Mark intention named',
       },
       {
         id: 'reset-walk',
+        kind: 'simple' as const,
         label: 'Take a 10-minute reset walk',
         support: 'No pace goal, no distance goal. Just move and return to your breath.',
+        actionLabel: 'Mark walk complete',
       },
       {
         id: 'note-tonight',
+        kind: 'input' as const,
         label: 'Leave a note for tonight-you',
         support: 'Capture one sentence your later self can lean on when energy dips.',
+        actionLabel: 'Save note for tonight',
       },
     ],
     [],
   );
+  const latestTonightNote = state.returnMoments[0];
+  const currentHour = new Date().getHours();
+  const isTonightContext = currentHour >= 17 || currentHour < 4;
   const selectedActionLabel = actions.find((action) => action.id === selectedAction)?.label ?? actions[0].label;
 
   const toggleChecked = (actionId: string) => {
+    setInlineMessage('');
     setCheckedActions((existing) =>
       existing.includes(actionId) ? existing.filter((id) => id !== actionId) : [...existing, actionId],
     );
+  };
+
+  const saveTonightNote = () => {
+    if (!tonightNoteDraft.trim()) {
+      setInlineMessage('Write a short note before saving.');
+      return;
+    }
+    const result = addReturnMoment(`Tonight note: ${tonightNoteDraft.trim()}`);
+    if (result) {
+      setInlineMessage(result);
+      return;
+    }
+    setInlineMessage('Saved. We will resurface this in tonight context and in Growth notes.');
+    setTonightNoteDraft('');
   };
 
   return (
@@ -74,7 +99,6 @@ export const TodayScreen = () => {
           {actions.map((action) => {
             const isChecked = checkedActions.includes(action.id);
             const isSelected = selectedAction === action.id;
-            const isExpanded = expandedAction === action.id;
             return (
               <article key={action.id} className={`action-item${isSelected ? ' selected' : ''}`} role="listitem">
                 <button
@@ -89,19 +113,38 @@ export const TodayScreen = () => {
                 <button type="button" className="action-select" onClick={() => setSelectedAction(action.id)}>
                   {action.label}
                 </button>
-                <button
-                  type="button"
-                  className="action-expand"
-                  onClick={() => setExpandedAction(isExpanded ? null : action.id)}
-                  aria-expanded={isExpanded}
-                >
-                  {isExpanded ? 'Hide' : 'Details'}
-                </button>
-                {isExpanded ? <p className="action-support">{action.support}</p> : null}
+                <p className="action-support">{action.support}</p>
+                {action.kind === 'simple' ? (
+                  <button type="button" className="action-expand" onClick={() => toggleChecked(action.id)}>
+                    {checkedActions.includes(action.id) ? 'Completed' : action.actionLabel}
+                  </button>
+                ) : (
+                  <div className="today-inline-note">
+                    <label htmlFor="tonight-note" className="sr-only">Tonight note</label>
+                    <textarea
+                      id="tonight-note"
+                      value={tonightNoteDraft}
+                      onChange={(event) => setTonightNoteDraft(event.target.value)}
+                      placeholder="One line for your later self"
+                      rows={2}
+                    />
+                    <button type="button" className="action-expand" onClick={saveTonightNote}>
+                      {action.actionLabel}
+                    </button>
+                  </div>
+                )}
               </article>
             );
           })}
         </div>}
+        {inlineMessage ? <p className="panel-copy">{inlineMessage}</p> : null}
+        {latestTonightNote ? (
+          <article className="action-item" aria-live="polite">
+            <p className="panel-kicker">Tonight retrieval</p>
+            {isTonightContext ? <p className="action-support">Saved note for now: {latestTonightNote.note}</p> : <p className="action-support">Your latest tonight note is stored and will reappear this evening.</p>}
+            <Link className="button-link" to="/growth">Open Growth notes</Link>
+          </article>
+        ) : null}
       </section>
 
       <section className="chapter chapter-kind" aria-labelledby="today-kind-title">

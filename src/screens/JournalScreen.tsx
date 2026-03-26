@@ -46,6 +46,9 @@ export const JournalScreen = () => {
         {integrityMessage ? <p>{integrityMessage}</p> : null}
       </Card>
       <Card title="Weekly reflection">
+        <div className="inline-actions" style={{ marginBottom: '10px' }}>
+          <Link className="button-link" to="/journal/reflections">View reflection history</Link>
+        </div>
         <form onSubmit={submitReflection} className="stack compact">
           <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked?" />
           <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What didn't hold up?" />
