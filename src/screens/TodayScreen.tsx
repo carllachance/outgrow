@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ReentryHero } from '../components/brand/ReentryHero';
-import { WelcomeHero } from '../components/brand/WelcomeHero';
+import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 
 export const TodayScreen = () => {
@@ -12,7 +12,15 @@ export const TodayScreen = () => {
 
   return (
     <div className="screen today-screen">
-      {hasSetDirection ? <ReentryHero /> : <WelcomeHero />}
+      {hasSetDirection ? (
+        <ReentryHero />
+      ) : (
+        <BrandHeader
+          title="Glad You’re Here."
+          note="This space is not for performance. It is for honest return. One chapter at a time."
+          kicker="Arrival"
+        />
+      )}
 
       <section className="atmospheric-panel" aria-labelledby="today-arrival-title">
         <p className="panel-kicker">Today</p>

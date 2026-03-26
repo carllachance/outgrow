@@ -16,12 +16,17 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <BrandHeader title="Kind Words" subtitle="Be kind to yourself." note="Support without pressure." />
+      <BrandHeader title="Be kind to yourself" subtitle="Be kind to yourself." note="Support without pressure." />
       <Card title="Inspire me">
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
-        {inspire ? <p>{inspire}</p> : null}
+        {inspire ? (
+          <div className="generated-output" role="status" aria-live="polite">
+            <p className="generated-output-label">Surfaced message</p>
+            <p className="generated-output-copy">{inspire}</p>
+          </div>
+        ) : null}
       </Card>
-      <Card title="I could use a hand">
+      <Card title="What feels hard right now">
         <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="What do you need help with right now?" />
         <button
           type="button"
@@ -34,7 +39,7 @@ export const KindWordsScreen = () => {
             setRequest('');
           }}
         >
-          Get a gentle response
+          I could use a hand
         </button>
         {handMessage ? <p>{handMessage}</p> : null}
       </Card>
