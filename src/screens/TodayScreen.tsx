@@ -12,55 +12,40 @@ export const TodayScreen = () => {
 
   return (
     <div className="screen today-screen">
-      {hasSetDirection ? <WelcomeHero /> : <ReentryHero />}
+      {hasSetDirection ? <ReentryHero /> : <WelcomeHero />}
 
-      <section className="today-card today-card-hero" aria-labelledby="today-hero-title">
-        <p className="today-kicker">Today</p>
-        <h2 id="today-hero-title">Post-intake summary</h2>
-        <p>Here&apos;s what I&apos;m hearing: you want this to be workable and steady.</p>
-        <p>I&apos;ll support you with lighter nudges as confidence grows. You can adjust support any time.</p>
-      </section>
-
-      <section className="today-card today-card-weekly" aria-labelledby="today-weekly-title">
-        <p className="today-kicker">Weekly lens</p>
-        <h3 id="today-weekly-title">This week</h3>
-        <p>{weeklyLens}</p>
-      </section>
-
-      <section className="today-card today-card-focus" aria-labelledby="today-focus-title">
-        <p className="today-kicker">Current focus</p>
-        <h3 id="today-focus-title">What matters most right now</h3>
-        <p>{currentFocus}</p>
-      </section>
-
-      <section className="today-card today-card-action" aria-labelledby="today-action-title">
-        <p className="today-kicker">Useful action</p>
-        <h3 id="today-action-title">Pick one or two gentle actions</h3>
-        <ul>
-          <li>Choose one anchor meal to simplify today.</li>
-          <li>Leave one note about what felt workable.</li>
-        </ul>
-      </section>
-
-      <section className="today-card today-card-rhythm" aria-labelledby="today-rhythm-title">
-        <p className="today-kicker">Insight / rhythm</p>
-        <h3 id="today-rhythm-title">Support rhythm</h3>
-        <p>
-          You are currently on <strong>{state.onboarding.supportTier}</strong> support. This can shift with your week —
-          lighter when steady, closer when needed.
+      <section className="atmospheric-panel" aria-labelledby="today-arrival-title">
+        <p className="panel-kicker">Today</p>
+        <h2 id="today-arrival-title" className="panel-title">What would make today a little steadier?</h2>
+        <p className="panel-copy">
+          We&apos;ll keep this day simple. One grounded action is enough to count as progress.
         </p>
       </section>
 
-      <section className="today-card today-card-kind" aria-labelledby="today-kind-title">
-        <p className="today-kicker">Kind word</p>
-        <h3 id="today-kind-title">A small nudge with heart</h3>
-        <p>Momentum can be quiet. Care still counts, even when it looks small.</p>
-        <div className="inline-actions today-actions">
+      <section className="chapter" aria-labelledby="today-focus-title">
+        <p className="panel-kicker">Current focus</p>
+        <h3 id="today-focus-title">{currentFocus}</h3>
+        <p>{weeklyLens}</p>
+      </section>
+
+      <section className="chapter" aria-labelledby="today-choice-title">
+        <p className="panel-kicker">Gentle choices</p>
+        <h3 id="today-choice-title">Choose one next step.</h3>
+        <div className="choices">
+          <button type="button" className="choice-chip">Write one clear meal intention.</button>
+          <button type="button" className="choice-chip">Take a ten-minute reset walk.</button>
+          <button type="button" className="choice-chip">Leave a note for tonight-you.</button>
+        </div>
+      </section>
+
+      <section className="chapter" aria-labelledby="today-reflection-title">
+        <p className="panel-kicker">Reflection</p>
+        <h3 id="today-reflection-title">Returning is the work.</h3>
+        <p>Momentum can be quiet. Care still counts, especially when the day feels ordinary.</p>
+        <div className="inline-actions" style={{ marginTop: '14px' }}>
           <Link className="button-link" to="/kind-words">
-            You good?
+            I need a kind word
           </Link>
-          <button type="button">Chef shortcut (stub)</button>
-          <button type="button">Shopping helper (stub)</button>
         </div>
       </section>
     </div>
