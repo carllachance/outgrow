@@ -1,100 +1,142 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
-import type { CompositionTag, MealContext, MealEventType, PortionFeel } from '../types';
+import { buildMealLogEntry, interpretMealEntry } from '../state/mealInterpretation';
+import type { MealKind, TimeMode } from '../types';
 import { buildWeeklyMealSummary, canUseMealLogging, canViewMealHistory } from '../state/mealLogSummary';
 
-const EVENT_TYPES: MealEventType[] = ['meal', 'snack', 'treat', 'drink'];
-const COMPOSITION_TAGS: CompositionTag[] = ['protein', 'produce', 'fiber', 'starch', 'sweets', 'fried_heavy', 'ultra_processed', 'alcohol', 'caffeine'];
-const PORTION_FEELS: PortionFeel[] = ['light', 'sensible', 'heavy'];
-const CONTEXTS: MealContext[] = ['hungry', 'convenience', 'stress', 'social', 'celebration', 'bored', 'routine'];
+const MEAL_KINDS: MealKind[] = ['unknown', 'breakfast', 'lunch', 'dinner', 'snack', 'drink'];
+
+const todayDate = () => new Date().toISOString().slice(0, 10);
 
 export const MealLogScreen = () => {
   const { state, addMealLog, removeMealLog } = useStore();
   const trackingEnabled = canUseMealLogging(state.safety);
   const historyVisible = canViewMealHistory(state.safety);
 
-  const [eventType, setEventType] = useState<MealEventType>('meal');
-  const [compositionTags, setCompositionTags] = useState<CompositionTag[]>([]);
-  const [portionFeel, setPortionFeel] = useState<PortionFeel>('sensible');
-  const [context, setContext] = useState<MealContext | ''>('');
-  const [note, setNote] = useState('');
+  const [rawText, setRawText] = useState('');
+  const [entryDate, setEntryDate] = useState(todayDate());
+  const [showDetails, setShowDetails] = useState(false);
   const [storeMessage, setStoreMessage] = useState('');
+
+  const interpreted = useMemo(() => interpretMealEntry({ rawText, entryDate }), [rawText, entryDate]);
+
+  const [timeModeOverride, setTimeModeOverride] = useState<TimeMode | ''>('');
+  const [softTimeOverride, setSoftTimeOverride] = useState('');
+  const [mealKindOverride, setMealKindOverride] = useState<MealKind | ''>('');
+  const [summaryOverride, setSummaryOverride] = useState('');
 
   const weeklySummary = useMemo(() => buildWeeklyMealSummary(state.mealLogs), [state.mealLogs]);
 
-  const toggleTag = (tag: CompositionTag) => {
-    setCompositionTags((current) => current.includes(tag) ? current.filter((value) => value !== tag) : [...current, tag]);
-  };
-
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const message = addMealLog({
-      eventType,
-      compositionTags,
-      portionFeel,
-      context: context || undefined,
-      note: note.trim() || undefined
-    });
+    if (!rawText.trim()) {
+      setStoreMessage('Please add at least a short food note.');
+      return;
+    }
 
-    setStoreMessage(message);
+    const hasEdits = Boolean(timeModeOverride || softTimeOverride || mealKindOverride || summaryOverride.trim());
+
+    const message = addMealLog(buildMealLogEntry({
+      rawText,
+      entryDate,
+      interpretation: interpreted,
+      edited: hasEdits
+        ? {
+          timeMode: timeModeOverride || interpreted.timeMode,
+          softTimeLabel: softTimeOverride.trim() || interpreted.softTimeLabel,
+          mealKind: mealKindOverride || interpreted.mealKind,
+          interpretedSummary: summaryOverride.trim() || interpreted.interpretedSummary
+        }
+        : undefined
+    }));
+
+    setStoreMessage(message || 'Saved. You can edit details later anytime.');
     if (!message) {
-      setCompositionTags([]);
-      setPortionFeel('sensible');
-      setContext('');
-      setNote('');
+      setRawText('');
+      setTimeModeOverride('');
+      setSoftTimeOverride('');
+      setMealKindOverride('');
+      setSummaryOverride('');
+      setShowDetails(false);
+      setEntryDate(todayDate());
     }
   };
 
   return (
     <div className="screen">
       <h1>Meal log</h1>
-      <p className="muted">Notice the shape of your habits. No calories, no points, no weighing.</p>
-      <Card title="Quick entry">
+      <p className="muted">Log meals or snacks now or later. Approximate timing is welcome.</p>
+      <Card title="Add meal or snack">
         {trackingEnabled ? (
           <form onSubmit={submit} className="stack compact">
-            <div>
-              <p className="muted">Event type</p>
-              <div className="chip-row">
-                {EVENT_TYPES.map((type) => (
-                  <button key={type} type="button" className={`chip-button ${eventType === type ? 'selected' : ''}`} onClick={() => setEventType(type)}>
-                    {type.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="muted">Composition tags</p>
-              <div className="chip-row">
-                {COMPOSITION_TAGS.map((tag) => (
-                  <button key={tag} type="button" className={`chip-button ${compositionTags.includes(tag) ? 'selected' : ''}`} onClick={() => toggleTag(tag)}>
-                    {tag.replace('_', ' ')}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="muted">Portion feel</p>
-              <div className="chip-row">
-                {PORTION_FEELS.map((feel) => (
-                  <button key={feel} type="button" className={`chip-button ${portionFeel === feel ? 'selected' : ''}`} onClick={() => setPortionFeel(feel)}>
-                    {feel}
-                  </button>
-                ))}
-              </div>
-            </div>
             <label>
-              Context (optional)
-              <select value={context} onChange={(e) => setContext(e.target.value as MealContext | '')}>
-                <option value="">None</option>
-                {CONTEXTS.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
+              What did you have? You can be approximate.
+              <textarea
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                placeholder="Example: turkey sandwich, around lunch"
+              />
             </label>
             <label>
-              Note (optional)
-              <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="One line is enough." />
+              Day (optional)
+              <input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
             </label>
-            <button type="submit">Save meal log</button>
+
+            {rawText.trim() ? (
+              <div>
+                <p className="muted">Looks like</p>
+                <p>
+                  {(mealKindOverride || interpreted.mealKind || 'unknown').replace('_', ' ')}
+                  {' · '}
+                  {softTimeOverride || interpreted.softTimeLabel || ((timeModeOverride || interpreted.timeMode) === 'exact' ? 'Exact time' : 'Time open')}
+                </p>
+                <p>{summaryOverride || interpreted.interpretedSummary || rawText}</p>
+              </div>
+            ) : null}
+
+            <button type="button" onClick={() => setShowDetails((current) => !current)}>
+              {showDetails ? 'Hide details' : 'Edit details'}
+            </button>
+
+            {showDetails ? (
+              <div className="stack compact">
+                <label>
+                  Time mode
+                  <select value={timeModeOverride} onChange={(e) => setTimeModeOverride(e.target.value as TimeMode | '')}>
+                    <option value="">Use interpretation ({interpreted.timeMode})</option>
+                    <option value="soft">Soft</option>
+                    <option value="exact">Exact</option>
+                    <option value="unknown">Unknown</option>
+                  </select>
+                </label>
+                <label>
+                  Soft time label
+                  <input
+                    value={softTimeOverride}
+                    onChange={(e) => setSoftTimeOverride(e.target.value)}
+                    placeholder={interpreted.softTimeLabel || 'around lunch'}
+                  />
+                </label>
+                <label>
+                  Meal type
+                  <select value={mealKindOverride} onChange={(e) => setMealKindOverride(e.target.value as MealKind | '')}>
+                    <option value="">Use interpretation ({interpreted.mealKind})</option>
+                    {MEAL_KINDS.map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Understood as
+                  <input
+                    value={summaryOverride}
+                    onChange={(e) => setSummaryOverride(e.target.value)}
+                    placeholder={interpreted.interpretedSummary || rawText}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            <button type="submit">Save</button>
             {storeMessage ? <p>{storeMessage}</p> : null}
           </form>
         ) : (
@@ -108,7 +150,7 @@ export const MealLogScreen = () => {
         ) : (
           <>
             <p className="muted">
-              This week: {weeklySummary.totalEntries} entries · treats: {weeklySummary.treatCount} · heavy-feeling: {weeklySummary.heavyFeelCount} · stress-context: {weeklySummary.stressContextCount}
+              This week: {weeklySummary.totalEntries} entries · late afternoon snacks: {weeklySummary.lateAfternoonSnacks} · late night snacks: {weeklySummary.lateNightSnacks}
             </p>
             {weeklySummary.lines.map((line) => <p key={line}>{line}</p>)}
           </>
@@ -119,11 +161,11 @@ export const MealLogScreen = () => {
         {!historyVisible ? <p>Meal history is hidden while safety mode is active.</p> : state.mealLogs.slice(0, 8).map((entry) => (
           <article key={entry.id} className="meal-log-item">
             <p>
-              <strong>{entry.eventType}</strong> · {entry.portionFeel} · {new Date(entry.timestamp).toLocaleString()}
+              <strong>{entry.mealKind ?? 'unknown'}</strong> · {entry.softTimeLabel || entry.timeMode} · {new Date(entry.createdAt).toLocaleString()}
             </p>
-            <p>Tags: {entry.compositionTags.length ? entry.compositionTags.join(', ') : 'none selected'}</p>
-            {entry.context ? <p>Context: {entry.context}</p> : null}
-            {entry.note ? <p>Note: {entry.note}</p> : null}
+            <p>{entry.interpretedSummary || entry.rawText}</p>
+            {entry.rawText !== entry.interpretedSummary ? <p className="muted">Original: {entry.rawText}</p> : null}
+            {entry.wasEditedAfterInterpretation ? <p className="muted">Edited after interpretation.</p> : null}
             {trackingEnabled ? <button type="button" onClick={() => removeMealLog(entry.id)}>Remove</button> : null}
           </article>
         ))}

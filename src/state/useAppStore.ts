@@ -252,19 +252,27 @@ export const useAppStore = () => {
       clearAllData: () => {
         persist(defaultState);
       },
-      addMealLog: (entry: Omit<MealLogEntry, 'id' | 'timestamp'>) => {
+      addMealLog: (entry: Omit<MealLogEntry, 'id' | 'createdAt'>) => {
         if (!canUseMealLogging(state.safety)) {
           return 'Meal logging is paused while safety mode is active.';
         }
 
         const nextEntry: MealLogEntry = {
           id: crypto.randomUUID(),
-          timestamp: nowIso(),
-          eventType: entry.eventType,
-          compositionTags: entry.compositionTags,
-          portionFeel: entry.portionFeel,
-          context: entry.context,
-          note: entry.note?.trim() || undefined
+          createdAt: nowIso(),
+          entryDate: entry.entryDate,
+          timeMode: entry.timeMode,
+          softTimeLabel: entry.softTimeLabel,
+          timeRangeStart: entry.timeRangeStart,
+          timeRangeEnd: entry.timeRangeEnd,
+          exactTime: entry.exactTime,
+          mealKind: entry.mealKind,
+          rawText: entry.rawText.trim(),
+          interpretedSummary: entry.interpretedSummary?.trim() || undefined,
+          components: entry.components ?? [],
+          interpretationConfidence: entry.interpretationConfidence,
+          source: 'manual',
+          wasEditedAfterInterpretation: entry.wasEditedAfterInterpretation
         };
 
         persist({ ...state, mealLogs: [nextEntry, ...state.mealLogs] });

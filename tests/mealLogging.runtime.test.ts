@@ -1,6 +1,7 @@
 import { hydrateAppState } from '../src/state/hydrateState.js';
 import { buildWeeklyMealSummary, canUseMealLogging, canViewMealHistory } from '../src/state/mealLogSummary.js';
 import { defaultState } from '../src/state/defaultState.js';
+import { interpretMealEntry } from '../src/state/mealInterpretation.js';
 import type { MealLogEntry } from '../src/types.js';
 
 const assert = (condition: unknown, message: string) => {
@@ -17,53 +18,55 @@ const nowIso = '2026-03-26T12:00:00.000Z';
 const entries: MealLogEntry[] = [
   {
     id: '1',
-    timestamp: '2026-03-25T12:00:00.000Z',
-    eventType: 'meal',
-    compositionTags: ['protein', 'produce'],
-    portionFeel: 'sensible',
-    context: 'routine'
+    createdAt: '2026-03-25T12:00:00.000Z',
+    entryDate: '2026-03-25',
+    timeMode: 'soft',
+    softTimeLabel: 'Late afternoon',
+    mealKind: 'snack',
+    rawText: 'granola bar this afternoon',
+    interpretedSummary: 'Granola bar',
+    components: [{ label: 'granola bar', kind: 'main' }],
+    interpretationConfidence: 'high',
+    source: 'manual',
+    wasEditedAfterInterpretation: false
   },
   {
     id: '2',
-    timestamp: '2026-03-24T12:00:00.000Z',
-    eventType: 'treat',
-    compositionTags: ['sweets'],
-    portionFeel: 'heavy',
-    context: 'social'
+    createdAt: '2026-03-24T12:00:00.000Z',
+    entryDate: '2026-03-24',
+    timeMode: 'soft',
+    softTimeLabel: 'Late night',
+    mealKind: 'snack',
+    rawText: 'late night chips',
+    interpretedSummary: 'Late night chips',
+    components: [{ label: 'chips', kind: 'ingredient' }],
+    interpretationConfidence: 'medium',
+    source: 'manual',
+    wasEditedAfterInterpretation: false
   },
   {
     id: '3',
-    timestamp: '2026-03-23T12:00:00.000Z',
-    eventType: 'snack',
-    compositionTags: ['protein', 'produce', 'fiber'],
-    portionFeel: 'light',
-    context: 'stress'
+    createdAt: '2026-03-23T12:00:00.000Z',
+    entryDate: '2026-03-23',
+    timeMode: 'unknown',
+    mealKind: 'unknown',
+    rawText: 'coffee then sandwich later',
+    interpretedSummary: 'Coffee, sandwich later',
+    components: [{ label: 'coffee', kind: 'drink' }, { label: 'sandwich later', kind: 'main' }],
+    interpretationConfidence: 'low',
+    source: 'manual',
+    wasEditedAfterInterpretation: false
   }
 ];
 
-test('weekly summary counts entries and keeps treat language neutral', () => {
+test('weekly summary keeps trends broad and approximate', () => {
   const summary = buildWeeklyMealSummary(entries, nowIso);
   assert(summary.totalEntries === 3, 'should count weekly entries');
-  assert(summary.treatCount === 1, 'should count treats');
-  assert(summary.heavyFeelCount === 1, 'should count heavy entries');
-  assert(summary.stressContextCount === 1, 'should count stress context');
-  assert(summary.lines.some((line) => line.includes('part of a real week')), 'treat line should stay neutral');
-  assert(summary.lines.every((line) => !/cheat|bad|failure|discipline/i.test(line)), 'summary should avoid moralizing language');
-});
-
-test('weekly summary handles optional fields and old entries', () => {
-  const summary = buildWeeklyMealSummary([
-    {
-      id: '4',
-      timestamp: '2026-03-10T12:00:00.000Z',
-      eventType: 'drink',
-      compositionTags: [],
-      portionFeel: 'light'
-    }
-  ], nowIso);
-
-  assert(summary.totalEntries === 0, 'entries older than seven days should be excluded');
-  assert(summary.lines[0].includes('No entries this week yet'), 'empty week line should be present');
+  assert(summary.lateAfternoonSnacks === 1, 'should count late afternoon snacks');
+  assert(summary.lateNightSnacks === 1, 'should count late night snacks');
+  assert(summary.unknownTimeCount === 1, 'should count unknown timing entries');
+  assert(summary.lines.some((line) => line.includes('Approximate logs still count')), 'summary should reinforce soft tracking');
+  assert(summary.lines.every((line) => !/3:17|precise|exact minute/i.test(line)), 'summary should avoid false precision language');
 });
 
 test('hydration migration keeps old users safe with defaults', () => {
@@ -71,6 +74,25 @@ test('hydration migration keeps old users safe with defaults', () => {
   assert(Array.isArray(hydrated.mealLogs), 'meal logs should always be present');
   assert(hydrated.mealLogs.length === 0, 'meal logs should default to empty list');
   assert(hydrated.safety.flags.tracking_enabled === defaultState.safety.flags.tracking_enabled, 'safety defaults should remain intact');
+});
+
+test('legacy meal entries migrate to raw text preserving records', () => {
+  const hydrated = hydrateAppState(JSON.stringify({
+    ...defaultState,
+    mealLogs: [{ id: 'legacy-1', timestamp: '2026-03-20T01:00:00.000Z', eventType: 'meal', portionFeel: 'sensible', compositionTags: [], note: 'turkey sandwich' }]
+  }));
+
+  assert(hydrated.mealLogs.length === 1, 'legacy meal log should survive migration');
+  assert(hydrated.mealLogs[0].rawText === 'turkey sandwich', 'raw text should be preserved from note');
+  assert(hydrated.mealLogs[0].timeMode === 'exact', 'legacy timestamp should become exact mode');
+});
+
+test('interpreter extracts soft time and components without forcing precision', () => {
+  const result = interpretMealEntry({ rawText: 'turkey sandwich, white bread, mayo, tomato around lunch', entryDate: '2026-03-26' });
+  assert(result.timeMode === 'soft', 'around lunch should map to soft time');
+  assert(result.softTimeLabel === 'Around lunch', 'soft time label should be normalized but user-friendly');
+  assert(result.components.length >= 4, 'obvious components should be extracted');
+  assert(result.interpretationConfidence !== 'low', 'clear phrase should not be low confidence');
 });
 
 test('safety gate helpers reflect tracking and progress visibility flags', () => {
