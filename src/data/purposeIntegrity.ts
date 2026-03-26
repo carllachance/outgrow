@@ -110,7 +110,7 @@ const TIER1_PATTERNS = [
 
 export const detectSafetyTier = (input: string): SafetyTier => {
   const trimmed = input.trim();
-  if (!trimmed) return 1;
+  if (!trimmed) return 0;
   if (TIER3_PATTERNS.some((pattern) => pattern.test(trimmed))) return 3;
   if (TIER2_PATTERNS.some((pattern) => pattern.test(trimmed))) return 2;
   if (TIER1_PATTERNS.some((pattern) => pattern.test(trimmed))) return 1;
