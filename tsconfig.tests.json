@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".tmp-tests",
+    "noEmit": false,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ]
+  },
+  "include": [
+    "src/types.ts",
+    "src/data/purposeIntegrity.ts",
+    "src/data/safetyRuntimePolicy.ts",
+    "src/state/defaultState.ts",
+    "src/state/safetyState.ts",
+    "tests/safetyState.runtime.test.ts"
+  ]
+}
