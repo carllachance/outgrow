@@ -6,6 +6,7 @@ import { outgrowSafetyRuntimePolicy, resolveTierRule } from '../data/safetyRunti
 import { applyTier, appendSafetyEvent, isRestrictionActive } from './safetyState';
 import { hydrateAppState } from './hydrateState';
 import { canUseMealLogging } from './mealLogSummary';
+import { buildInsightSupportLinks } from './insightProvenance';
 
 const STORAGE_KEY = 'outgrow-mvp-state-v1';
 const PROLONGED_SAFE_BASE_HOURS = outgrowSafetyRuntimePolicy.prolonged_safe_mode.base_duration_hours;
@@ -24,6 +25,11 @@ export const useAppStore = () => {
     setState(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
+
+  const withProvenance = (next: AppState): AppState => ({
+    ...next,
+    insightSupportLinks: buildInsightSupportLinks(next)
+  });
 
   return useMemo(
     () => ({
@@ -131,7 +137,7 @@ export const useAppStore = () => {
           date: nowIso()
         };
         const nextState = { ...riskAdjusted, journalEntries: [full, ...riskAdjusted.journalEntries] };
-        persist(nextState);
+        persist(withProvenance(nextState));
         return integrity.status === 'review' ? integrity.message : '';
       },
       addReflection: (reflection: Reflection) => {
@@ -170,7 +176,7 @@ export const useAppStore = () => {
           return 'Return logging is unavailable while safety mode is active.';
         }
         const full = { id: crypto.randomUUID(), note: screened, date: nowIso() };
-        persist({ ...riskAdjusted, returnMoments: [full, ...riskAdjusted.returnMoments] });
+        persist(withProvenance({ ...riskAdjusted, returnMoments: [full, ...riskAdjusted.returnMoments] }));
         return '';
       },
       addKindWord: (request: string, response: string) => {
@@ -275,14 +281,14 @@ export const useAppStore = () => {
           wasEditedAfterInterpretation: entry.wasEditedAfterInterpretation
         };
 
-        persist({ ...state, mealLogs: [nextEntry, ...state.mealLogs] });
+        persist(withProvenance({ ...state, mealLogs: [nextEntry, ...state.mealLogs] }));
         return '';
       },
       removeMealLog: (id: string) => {
-        persist({ ...state, mealLogs: state.mealLogs.filter((entry) => entry.id !== id) });
+        persist(withProvenance({ ...state, mealLogs: state.mealLogs.filter((entry) => entry.id !== id) }));
       },
       clearMealLogs: () => {
-        persist({ ...state, mealLogs: [] });
+        persist(withProvenance({ ...state, mealLogs: [] }));
       }
     }),
     [state]

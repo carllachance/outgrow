@@ -1,11 +1,13 @@
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
 import { Link } from 'react-router-dom';
+import { buildInsightSupportLinks, insightLibrary } from '../state/insightProvenance';
 
 export const GrowthScreen = () => {
   const { state, addReturnMoment } = useStore();
   const isSafetyMode = !state.safety.flags.tracking_enabled;
   const progressHiddenMessage = 'Progress is temporarily hidden while safety mode is active.';
+  const supportLinks = state.insightSupportLinks.length ? state.insightSupportLinks : buildInsightSupportLinks(state);
 
   return (
     <div className="screen">
@@ -23,6 +25,25 @@ export const GrowthScreen = () => {
         {isSafetyMode ? <p>{progressHiddenMessage}</p> : state.returnMoments.slice(0, 4).map((moment) => (
           <p key={moment.id}>{new Date(moment.date).toLocaleDateString()}: {moment.note}</p>
         ))}
+      </Card>
+      <Card title="Behavioral insights">
+        <p className="muted">Each insight stays inspectable through the days that support it.</p>
+        <div className="stack compact">
+          {insightLibrary.map((insight) => {
+            const count = supportLinks.filter((link) => link.insightId === insight.id).length;
+            return (
+              <article key={insight.id} className="insight-card">
+                <h3>{insight.title}</h3>
+                <p>{insight.statement}</p>
+                <p className="muted">Supporting days: {count}</p>
+                <div className="inline-actions">
+                  <Link className="button-link" to={`/insights/${insight.id}`}>Open insight</Link>
+                  <Link className="button-link" to={`/insights/${insight.id}/days`}>View days</Link>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </Card>
     </div>
   );
