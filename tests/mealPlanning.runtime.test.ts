@@ -296,7 +296,7 @@ test('not-for-me feedback pushes next recommendation away from rejected profile'
   const next = suggestRecipeFromPromptWithContext({
     prompt: 'quick dinner with protein',
     context,
-    feedback: { type: 'not_for_me', recipe: first.recipe },
+    feedback: { type: 'not_for_me', recipe: first.recipe, reasons: ['wrong_protein'] },
     nowIso
   });
 
@@ -447,4 +447,48 @@ test('feedback loops continue honoring saved food rules', () => {
 
   const ingredientKeys = next.recipe.ingredients.map((ingredient) => normalizeIngredientAlias(ingredient.itemKey));
   assert(!ingredientKeys.includes('asparagus'), 'follow-up suggestions should still enforce hard restrictions');
+});
+
+test('too_heavy rejection reasons steer toward lighter style in the next draft', () => {
+  let context = createRecipeSuggestionContext('comforting quick dinner');
+  const first = suggestRecipeFromPromptWithContext({
+    prompt: 'comforting quick dinner',
+    context,
+    nowIso
+  });
+  context = first.context;
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'comforting quick dinner',
+    context,
+    feedback: { type: 'not_for_me', recipe: first.recipe, reasons: ['too_heavy'] },
+    nowIso
+  });
+
+  assert(next.recipe.tags[1] === 'quick', 'too_heavy should push toward lighter/faster options');
+});
+
+test('wrong_cuisine and wrong_protein reasons are reflected in steering explanations', () => {
+  const context = createRecipeSuggestionContext('quick dinner');
+  const first = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context,
+    nowIso
+  });
+
+  const next = suggestRecipeFromPromptWithContext({
+    prompt: 'quick dinner',
+    context: first.context,
+    feedback: { type: 'not_for_me', recipe: first.recipe, reasons: ['wrong_cuisine', 'wrong_protein'] },
+    nowIso
+  });
+
+  assert(
+    (next.context.lastSteeringSignals ?? []).some((signal) => signal.includes('avoiding: this cuisine')),
+    'wrong_cuisine should produce explainable avoidance signal'
+  );
+  assert(
+    (next.context.lastSteeringSignals ?? []).some((signal) => signal.includes('avoiding: this protein')),
+    'wrong_protein should produce explainable avoidance signal'
+  );
 });

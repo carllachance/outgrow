@@ -6,7 +6,7 @@ import {
   type RecipeSuggestionFeedback
 } from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
-import type { PantryItem, PantryStatus, Recipe } from '../domain/meal-planning/types';
+import type { PantryItem, PantryStatus, Recipe, RecipeFeedbackReason } from '../domain/meal-planning/types';
 import { useAppStore } from '../state/useAppStore';
 
 const nowIso = '2026-03-26T12:00:00.000Z';
@@ -51,6 +51,17 @@ const quickPrompts = [
   'Comforting but light dinner with leftovers'
 ];
 
+const rejectionReasons: Array<{ id: RecipeFeedbackReason; label: string }> = [
+  { id: 'too_heavy', label: 'Too heavy' },
+  { id: 'too_fussy', label: 'Too fussy' },
+  { id: 'too_many_ingredients', label: 'Too many ingredients' },
+  { id: 'wrong_flavor', label: 'Wrong flavor' },
+  { id: 'too_slow', label: 'Too slow' },
+  { id: 'too_expensive', label: 'Too expensive' },
+  { id: 'wrong_protein', label: 'Don’t want this protein' },
+  { id: 'wrong_cuisine', label: 'Don’t want this cuisine' }
+];
+
 export const MealPlannerScreen = () => {
   const { state, updateFoodRules } = useAppStore();
   const service = useMemo(() => {
@@ -65,6 +76,8 @@ export const MealPlannerScreen = () => {
   const [servings, setServings] = useState(2);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(defaultPantry);
   const [actionMessage, setActionMessage] = useState('');
+  const [showRejectionReasons, setShowRejectionReasons] = useState(false);
+  const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
   const [suggestionContext, setSuggestionContext] = useState(() => createRecipeSuggestionContext(prompt));
   const weeklySuccessText = state.onboarding.weeklyLens;
@@ -93,7 +106,7 @@ export const MealPlannerScreen = () => {
     return shopping.items.length;
   };
 
-  const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral') => {
+  const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral', reasons: RecipeFeedbackReason[] = []) => {
     if (!prompt.trim()) {
       setActionMessage('Share what you need tonight so we can draft a recipe.');
       return;
@@ -104,7 +117,7 @@ export const MealPlannerScreen = () => {
       context: suggestionContext,
       weeklySuccessText,
       foodRules,
-      feedback: feedback === 'neutral' ? undefined : { type: feedback, recipe },
+      feedback: feedback === 'neutral' ? undefined : { type: feedback, recipe, reasons },
       nowIso
     });
 
@@ -114,6 +127,8 @@ export const MealPlannerScreen = () => {
     setServings(savedDraft.servingsDefault || servings);
 
     const steeringNote = suggested.context.lastSteeringSignals?.[0] ? ` ${suggested.context.lastSteeringSignals[0]}` : '';
+    setShowRejectionReasons(false);
+    setSelectedRejectionReasons([]);
 
     if (feedback === 'not_for_me') {
       setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.${steeringNote}`);
@@ -287,12 +302,41 @@ export const MealPlannerScreen = () => {
             <button type="button" onClick={handleAddToPlan}>Add to plan</button>
             <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
             <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
-            <button type="button" onClick={() => handleSuggestRecipe('not_for_me')}>Not for me</button>
+            <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>Not for me</button>
             <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
             <button type="button" onClick={handleRecipeCard}>Print / share</button>
             <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>
           </div>
         </div>
+        {showRejectionReasons ? (
+          <div className="stack compact">
+            <p className="muted">What should we avoid?</p>
+            <div className="meal-actions">
+              {rejectionReasons.map((reason) => {
+                const isSelected = selectedRejectionReasons.includes(reason.id);
+                return (
+                  <button
+                    key={reason.id}
+                    type="button"
+                    onClick={() => setSelectedRejectionReasons((current) => (
+                      current.includes(reason.id)
+                        ? current.filter((item) => item !== reason.id)
+                        : [...current, reason.id]
+                    ))}
+                  >
+                    {isSelected ? `✓ ${reason.label}` : reason.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleSuggestRecipe('not_for_me', selectedRejectionReasons)}
+              >
+                Suggest something else
+              </button>
+            </div>
+          </div>
+        ) : null}
         {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
       </Card>
 

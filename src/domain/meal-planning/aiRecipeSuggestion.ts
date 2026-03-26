@@ -1,5 +1,12 @@
 import { normalizeIngredientAlias } from './derivations.js';
-import type { FoodRules, Recipe, RecipeIngredient, RecipeSuggestionSessionContext } from './types.js';
+import type {
+  FoodRules,
+  Recipe,
+  RecipeFeedbackEvent,
+  RecipeFeedbackReason,
+  RecipeIngredient,
+  RecipeSuggestionSessionContext
+} from './types.js';
 
 const titleCase = (value: string): string => value.split(' ').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
 
@@ -51,7 +58,20 @@ interface SuggestWithContextInput {
   feedback?: {
     type: RecipeSuggestionFeedback;
     recipe?: Recipe;
+    reasons?: RecipeFeedbackReason[];
   };
+}
+
+interface CandidateScoreBreakdown {
+  promptScore: number;
+  positiveFeedbackScore: number;
+  negativeFeedbackPenalty: number;
+  standingOrderScore: number;
+  weeklyLensScore: number;
+  noveltyPenalty: number;
+  rejectionPenalty: number;
+  duplicatePenalty: number;
+  total: number;
 }
 
 const createIngredient = (template: IngredientTemplate, index: number): RecipeIngredient => ({
@@ -76,6 +96,10 @@ export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionC
   positiveExampleSignatures: [],
   preferredTokens: [],
   avoidedTokens: [],
+  recentSuggestedRecipeIds: [],
+  rejectedRecipeIds: [],
+  preferredRecipeIds: [],
+  feedbackEvents: [],
   lastSteeringSignals: []
 });
 
@@ -144,6 +168,19 @@ const signatureFromProfile = (profile: RecipeCandidateProfile): string => (
   [profile.protein, profile.base, profile.veg, profile.flavor.toLowerCase(), profile.method.toLowerCase()].join('|')
 );
 
+const profileTraits = (profile: RecipeCandidateProfile) => ({
+  cuisine: profile.flavor.toLowerCase(),
+  protein: normalizeRuleToken(profile.protein),
+  format: profile.base.toLowerCase().includes('rice') || profile.base.toLowerCase().includes('quinoa') ? 'bowl' : 'plate',
+  cookingMethod: profile.method.toLowerCase(),
+  effort: profile.method === 'Braise' || profile.method === 'Roast + Simmer' ? 'high' : profile.quickTag === 'quick' ? 'low' : 'medium',
+  cleanup: profile.method === 'Sheet Pan' || profile.method === 'One Pot' || profile.method === 'Skillet' ? 'low' : 'medium',
+  richness: profile.comfort ? 'hearty' : 'balanced',
+  speed: profile.quickTag === 'quick' ? 'quick' : 'standard',
+  price: profile.protein.includes('salmon') || profile.protein.includes('shrimp') ? 'higher' : 'standard',
+  flavorProfile: [profile.flavor.toLowerCase()]
+});
+
 const tokenOverlap = (left: string, right: string): number => {
   const leftSet = new Set(left.split('|'));
   const rightSet = new Set(right.split('|'));
@@ -168,7 +205,7 @@ const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[
       id: 'ease',
       confidence: 0.72,
       boost: 0.8,
-      explanation: 'Weekly success text mentions ease/low effort, so quicker formats get a small boost.'
+      explanation: 'quick dinners'
     });
   }
 
@@ -177,7 +214,7 @@ const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[
       id: 'cleanup',
       confidence: 0.78,
       boost: 0.9,
-      explanation: 'Weekly success text mentions cleanup, so one-pot/sheet-pan style gets a small boost.'
+      explanation: 'low cleanup'
     });
   }
 
@@ -186,7 +223,7 @@ const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[
       id: 'comfort',
       confidence: 0.75,
       boost: 0.85,
-      explanation: 'Weekly success text mentions comfort, so cozy flavor profiles get a small boost.'
+      explanation: 'comfort food'
     });
   }
 
@@ -195,7 +232,7 @@ const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[
       id: 'logistics',
       confidence: 0.68,
       boost: 0.75,
-      explanation: 'Weekly success text mentions logistics/leftovers, so repeatable batch-friendly options get a small boost.'
+      explanation: 'batch-friendly'
     });
   }
 
@@ -294,6 +331,25 @@ const weeklySignalScore = (candidate: RecipeCandidateProfile, signals: WeeklyMea
   }, 0);
 };
 
+const scoreNegativeReasons = (profile: RecipeCandidateProfile, reasons: RecipeFeedbackReason[] = []): number => {
+  if (!reasons.length) return 0;
+  const traits = profileTraits(profile);
+  let penalty = 0;
+
+  for (const reason of reasons) {
+    if (reason === 'too_heavy' && traits.richness === 'hearty') penalty += 1.7;
+    if (reason === 'too_fussy' && traits.effort === 'high') penalty += 1.7;
+    if (reason === 'too_many_ingredients' && (profile.method === 'Braise' || profile.method === 'Roast + Simmer')) penalty += 1.4;
+    if (reason === 'wrong_flavor') penalty += 1.1;
+    if (reason === 'too_slow' && traits.speed !== 'quick') penalty += 1.8;
+    if (reason === 'too_expensive' && traits.price === 'higher') penalty += 2;
+    if (reason === 'wrong_protein') penalty += 1.8;
+    if (reason === 'wrong_cuisine') penalty += 1.5;
+  }
+
+  return penalty;
+};
+
 const chooseCandidate = (
   pool: RecipeCandidateProfile[],
   context: RecipeSuggestionContext,
@@ -304,14 +360,14 @@ const chooseCandidate = (
     foodRules?: FoodRules;
     blockedTokens?: string[];
     promptTokens?: string[];
+    feedbackReasons?: RecipeFeedbackReason[];
   }
-): RecipeCandidateProfile => {
+): { candidate: RecipeCandidateProfile; breakdown: CandidateScoreBreakdown } => {
   const scored = pool.map((candidate, index) => {
     const signature = signatureFromProfile(candidate);
     const isRejected = context.rejectedSignatures.includes(signature);
     const wasRecent = context.recentSuggestionSignatures.includes(signature);
-    const preferredBoost = context.preferredTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0), 0);
-    const avoidedPenalty = context.avoidedTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0), 0);
+    const preferredBoost = context.preferredTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0.05), 0);
     const similarityScore = options?.targetSimilarityTo ? tokenOverlap(signature, options.targetSimilarityTo) : 0;
     const nearDuplicatePenalty = options?.targetSimilarityTo && similarityScore >= 0.95 ? 3 : 0;
     const weeklyScore = weeklySignalScore(candidate, options?.weeklySignals ?? []) * (options?.weeklyInfluenceScale ?? 0);
@@ -320,22 +376,60 @@ const chooseCandidate = (
       : 0;
     const hardBlocked = profileViolatesHardRules(candidate, options?.blockedTokens ?? []);
 
-    let score = preferredBoost - avoidedPenalty + similarityScore + weeklyScore + standingOrderScore;
-    if (isRejected) score -= 5;
-    if (wasRecent) score -= 8;
-    score -= nearDuplicatePenalty;
+    const negativeFeedbackPenalty = scoreNegativeReasons(candidate, options?.feedbackReasons);
+    const noveltyPenalty = wasRecent ? 3 : 0;
+    const rejectionPenalty = isRejected ? 5 : 0;
+    const duplicatePenalty = nearDuplicatePenalty;
+
+    let score = similarityScore + preferredBoost + weeklyScore + standingOrderScore;
+    score -= negativeFeedbackPenalty + noveltyPenalty + rejectionPenalty + duplicatePenalty;
     if (hardBlocked) score -= 100;
 
-    return { candidate, signature, score, index };
-  });
+    const breakdown: CandidateScoreBreakdown = {
+      promptScore: 0,
+      positiveFeedbackScore: similarityScore + preferredBoost,
+      negativeFeedbackPenalty,
+      standingOrderScore,
+      weeklyLensScore: weeklyScore,
+      noveltyPenalty,
+      rejectionPenalty,
+      duplicatePenalty,
+      total: score
+    };
 
+    return { candidate, signature, score, index, breakdown };
+  });
 
   const notRecentOrRejected = scored.filter((entry) => !context.rejectedSignatures.includes(entry.signature) && !context.recentSuggestionSignatures.includes(entry.signature));
   const scoredPool = notRecentOrRejected.length ? notRecentOrRejected : scored;
 
   scoredPool.sort((left, right) => right.score - left.score || left.index - right.index);
-  return scoredPool[0]?.candidate ?? pool[0];
+  const winner = scoredPool[0] ?? scored[0];
+  return { candidate: winner.candidate, breakdown: winner.breakdown };
 };
+
+const steeringCopyForReasons = (reasons: RecipeFeedbackReason[]): string[] => {
+  const labels: Record<RecipeFeedbackReason, string> = {
+    too_heavy: 'avoiding: heavy meals',
+    too_fussy: 'avoiding: fussy prep',
+    too_many_ingredients: 'avoiding: too many ingredients',
+    wrong_flavor: 'avoiding: this flavor profile',
+    too_slow: 'avoiding: slow meals',
+    too_expensive: 'avoiding: expensive meals',
+    wrong_protein: 'avoiding: this protein',
+    wrong_cuisine: 'avoiding: this cuisine'
+  };
+
+  return reasons.map((reason) => labels[reason]);
+};
+
+const feedbackEvent = (input: { kind: RecipeFeedbackEvent['kind']; recipe: Recipe; nowIso: string; reasons?: RecipeFeedbackReason[] }): RecipeFeedbackEvent => ({
+  id: `feedback-${crypto.randomUUID()}`,
+  recipeId: input.recipe.id,
+  kind: input.kind,
+  reasons: input.reasons ?? [],
+  createdAt: input.nowIso
+});
 
 export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInput): { recipe: Recipe; context: RecipeSuggestionContext } => {
   const nowIso = input.nowIso ?? new Date().toISOString();
@@ -344,22 +438,43 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
 
   const baselineContext = promptChangedSignificantly
     ? createRecipeSuggestionContext(input.prompt)
-    : { ...input.context };
+    : {
+        ...input.context,
+        feedbackEvents: [...input.context.feedbackEvents],
+        recentSuggestedRecipeIds: [...input.context.recentSuggestedRecipeIds],
+        rejectedRecipeIds: [...input.context.rejectedRecipeIds],
+        preferredRecipeIds: [...input.context.preferredRecipeIds]
+      };
 
+  const feedbackReasons = input.feedback?.reasons ?? [];
   const feedbackRecipeSignature = input.feedback?.recipe ? [
     input.feedback.recipe.ingredients[0]?.displayName.toLowerCase(),
     input.feedback.recipe.ingredients[5]?.displayName.toLowerCase(),
     input.feedback.recipe.tags[2]
   ].filter(Boolean).join('|') : undefined;
 
-  if (input.feedback?.type === 'not_for_me' && feedbackRecipeSignature) {
+  const steeringSignals: string[] = [];
+
+  if (input.feedback?.type === 'not_for_me' && feedbackRecipeSignature && input.feedback.recipe) {
     baselineContext.rejectedSignatures = arrayUnique([...baselineContext.rejectedSignatures, feedbackRecipeSignature]);
     baselineContext.avoidedTokens = arrayUnique([...baselineContext.avoidedTokens, ...feedbackRecipeSignature.split('|')]);
+    baselineContext.rejectedRecipeIds = arrayUnique([...baselineContext.rejectedRecipeIds, input.feedback.recipe.id]);
+    baselineContext.feedbackEvents = [
+      feedbackEvent({ kind: 'reject', recipe: input.feedback.recipe, nowIso, reasons: feedbackReasons }),
+      ...baselineContext.feedbackEvents
+    ].slice(0, 24);
+    steeringSignals.push(...steeringCopyForReasons(feedbackReasons));
   }
 
-  if (input.feedback?.type === 'more_like_this' && feedbackRecipeSignature) {
+  if (input.feedback?.type === 'more_like_this' && feedbackRecipeSignature && input.feedback.recipe) {
     baselineContext.positiveExampleSignatures = arrayUnique([...baselineContext.positiveExampleSignatures, feedbackRecipeSignature]);
     baselineContext.preferredTokens = arrayUnique([...baselineContext.preferredTokens, ...feedbackRecipeSignature.split('|')]);
+    baselineContext.preferredRecipeIds = arrayUnique([...baselineContext.preferredRecipeIds, input.feedback.recipe.id]);
+    baselineContext.feedbackEvents = [
+      feedbackEvent({ kind: 'prefer', recipe: input.feedback.recipe, nowIso }),
+      ...baselineContext.feedbackEvents
+    ].slice(0, 24);
+    steeringSignals.push(`more like: ${input.feedback.recipe.tags[2] ?? 'current format'}`);
   }
 
   const weeklySignals = extractWeeklyMealSignals(input.weeklySuccessText);
@@ -368,26 +483,32 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   const blockedTokens = getHardBlockedTokens(input.foodRules);
   const pool = buildCandidatePool(tokens, baselineContext.iterations);
   const similarityTarget = input.feedback?.type === 'more_like_this' ? feedbackRecipeSignature : baselineContext.positiveExampleSignatures[baselineContext.positiveExampleSignatures.length - 1];
-  const candidate = chooseCandidate(pool, baselineContext, {
+  const selection = chooseCandidate(pool, baselineContext, {
     targetSimilarityTo: similarityTarget,
     weeklySignals,
     weeklyInfluenceScale,
     foodRules: input.foodRules,
     blockedTokens,
-    promptTokens: tokens
+    promptTokens: tokens,
+    feedbackReasons
   });
-  const recipe = buildRecipeFromProfile(candidate, input.prompt, nowIso, {
+  const recipe = buildRecipeFromProfile(selection.candidate, input.prompt, nowIso, {
     foodRules: input.foodRules,
     blockedTokens
   });
-  const generatedSignature = signatureFromProfile(candidate);
+  const generatedSignature = signatureFromProfile(selection.candidate);
 
   const nextContext: RecipeSuggestionContext = {
     ...baselineContext,
     promptSignature: nextPromptSignature,
     iterations: baselineContext.iterations + 1,
     recentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.recentSuggestionSignatures]).slice(0, 8),
-    lastSteeringSignals: weeklySignals.map((signal) => signal.explanation).slice(0, 2)
+    recentSuggestedRecipeIds: arrayUnique([recipe.id, ...baselineContext.recentSuggestedRecipeIds]).slice(0, 12),
+    lastSteeringSignals: arrayUnique([
+      ...steeringSignals,
+      ...weeklySignals.map((signal) => signal.explanation),
+      ...(selection.breakdown.positiveFeedbackScore > 0.8 ? ['leaning toward: similar traits'] : [])
+    ]).slice(0, 3)
   };
 
   return { recipe, context: nextContext };

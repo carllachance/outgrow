@@ -155,7 +155,31 @@ export interface RecipeSuggestionSessionContext {
   positiveExampleSignatures: string[];
   preferredTokens: string[];
   avoidedTokens: string[];
+  recentSuggestedRecipeIds: string[];
+  rejectedRecipeIds: string[];
+  preferredRecipeIds: string[];
+  feedbackEvents: RecipeFeedbackEvent[];
   lastSteeringSignals?: string[];
+}
+
+export type RecipeFeedbackKind = 'prefer' | 'reject';
+
+export type RecipeFeedbackReason =
+  | 'too_heavy'
+  | 'too_fussy'
+  | 'too_many_ingredients'
+  | 'wrong_flavor'
+  | 'too_slow'
+  | 'too_expensive'
+  | 'wrong_protein'
+  | 'wrong_cuisine';
+
+export interface RecipeFeedbackEvent {
+  id: string;
+  recipeId: string;
+  kind: RecipeFeedbackKind;
+  reasons: RecipeFeedbackReason[];
+  createdAt: string;
 }
 
 export interface FoodRules {
