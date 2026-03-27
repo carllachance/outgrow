@@ -207,3 +207,10 @@ export interface AppState {
   safety: SafetyState;
   foodRules: FoodRulesState;
 }
+
+export type AppMode = 'live' | 'demo';
+
+export interface RootAppState {
+  activeMode: AppMode;
+  profiles: Record<AppMode, AppState>;
+}
