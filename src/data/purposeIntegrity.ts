@@ -29,10 +29,10 @@ const POST_CHECK_RED_FLAGS = [
 ];
 
 const BLOCKED_RESPONSE =
-  'I can’t help with punishment, restriction, diagnosis, medication, or compensatory advice. Let’s choose one gentle, safe next step.';
+  'I can’t help with punishment, restriction, diagnosis, medication, or compensatory advice. Let’s choose one safe next step.';
 
 const REVIEW_RESPONSE =
-  'Thanks for sharing this. I can only offer supportive, non-medical guidance. Let’s keep this to one kind and practical next step.';
+  'Thanks for sharing this. I can offer supportive, non-medical guidance. Let’s keep this to one practical next step.';
 
 export type RiskCategory =
   | 'medical'
@@ -125,7 +125,7 @@ export const runPostGenerationSafetyCheck = (output: string): PostGenerationChec
 export const evaluatePurposeIntegrity = (input: string): IntegrityResult => {
   const trimmed = input.trim();
   if (!trimmed) {
-    return { status: 'review', message: 'Please add a little more detail before sharing.' };
+    return { status: 'review', message: 'Please add a little more detail.' };
   }
 
   if (HIGH_RISK_PATTERNS.some((pattern) => pattern.test(trimmed))) {

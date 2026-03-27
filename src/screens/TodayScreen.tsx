@@ -59,12 +59,12 @@ export const TodayScreen = () => {
   const modeLine = !shouldRenderGuidance
     ? ''
     : mode === 'reflection_aware'
-      ? 'Lately, your check-ins suggest steady meals help your rhythm.'
+      ? 'Recent check-ins suggest steady meals help your rhythm.'
       : hasExplicitIntent
-        ? 'Shaped by the direction you set, with room to keep it simple.'
+        ? 'Based on the direction you set.'
         : recentWin
-          ? 'You already left yourself a helpful cue—keep the next step small.'
-          : 'A quick check-in from today can help choose one practical next move.';
+          ? 'You already left yourself a helpful cue. Keep this next step small.'
+          : 'A quick check-in can help you pick one useful next move.';
 
   const suggestionChips = useMemo(() => {
     const intentBasedNextStep = todayNextStepFromStatedIntent(state.onboarding);
@@ -91,14 +91,14 @@ export const TodayScreen = () => {
         id: 'reset-walk',
         kind: 'action',
         label: 'Add a short reset walk',
-        support: 'A few minutes outside can reset your pace.',
+        support: 'A few minutes outside can help you reset.',
         actionLabel: 'Start 10-minute timer',
       },
       {
         id: 'note-tonight',
         kind: 'input',
-        label: 'Leave a note for tonight-you',
-        support: 'One sentence is enough.',
+        label: 'Leave a note for later',
+        support: 'One sentence is enough',
       },
       {
         id: 'kind-visit',
@@ -122,7 +122,7 @@ export const TodayScreen = () => {
 
   const startResetWalkTimer = () => {
     setResetWalkSecondsRemaining(10 * 60);
-    setInlineMessage('10-minute timer started.');
+    setInlineMessage('10-minute timer started');
   };
 
   const saveTodaySuccessDraft = (closeCard = true) => {
@@ -131,7 +131,7 @@ export const TodayScreen = () => {
       setTodaySuccessMessage(result);
       return false;
     }
-    setTodaySuccessMessage('Saved for today.');
+    setTodaySuccessMessage('Saved');
     if (closeCard) {
       setIsEditingTodaySuccess(false);
     }
@@ -140,7 +140,7 @@ export const TodayScreen = () => {
 
   const saveTonightNote = () => {
     if (!tonightNoteDraft.trim()) {
-      setInlineMessage('Write a short note before saving.');
+      setInlineMessage('Write a short note first.');
       return;
     }
     const result = addReturnMoment(`Tonight note: ${tonightNoteDraft.trim()}`);
@@ -148,7 +148,7 @@ export const TodayScreen = () => {
       setInlineMessage(result);
       return;
     }
-    setInlineMessage('Saved for later tonight.');
+    setInlineMessage('Saved for later.');
     setTonightNoteDraft('');
     setExpandedStretchId(null);
   };
@@ -156,7 +156,7 @@ export const TodayScreen = () => {
   const planInJournal = () => {
     const planSource = savedTodaySuccess || todaySuccessDraft;
     if (!planSource.trim()) {
-      setTodaySuccessMessage('Save today\'s success statement first.');
+      setTodaySuccessMessage('Save today\'s focus first.');
       return;
     }
     const result = addJournalEntry({ type: 'freeform', content: `${todayPlanPrefix} ${planSource.trim()}` });
@@ -164,7 +164,7 @@ export const TodayScreen = () => {
       setTodaySuccessMessage(result);
       return;
     }
-    setTodaySuccessMessage('Saved to Journal. You can open today\'s journal plan below.');
+    setTodaySuccessMessage('Saved to Journal.');
   };
 
   return (
@@ -174,7 +174,7 @@ export const TodayScreen = () => {
       ) : (
         <BrandHeader
           title="Glad You’re Here."
-          note="This space is for one honest next step, not performance."
+          note="Pick one clear next step."
           kicker="Arrival"
         />
       )}
@@ -194,7 +194,7 @@ export const TodayScreen = () => {
               }}
               aria-label="Edit today intention"
             >
-              {savedTodaySuccess || 'Choose one clear intention for today.'}
+              {savedTodaySuccess || 'Pick one clear focus for today.'}
             </button>
             <button
               type="button"
@@ -222,7 +222,7 @@ export const TodayScreen = () => {
                 saveTodaySuccessDraft(true);
               }}
               rows={2}
-              placeholder="Example: Finish my top priority by lunch and eat one grounded meal."
+              placeholder="Example: Finish my top priority by lunch and eat one steady meal."
               autoFocus
             />
 
@@ -238,7 +238,7 @@ export const TodayScreen = () => {
                       setTodaySuccessDraft(suggestion);
                       setTodaySuccessMessage('');
                       saveTodaySuccess(todayDateKey, suggestion);
-                      setTodaySuccessMessage('Saved for today.');
+                      setTodaySuccessMessage('Saved');
                       setIsEditingTodaySuccess(false);
                     }}
                   >
@@ -267,8 +267,8 @@ export const TodayScreen = () => {
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>
 
-      <section className="chapter today-stretch" aria-label="If it helps">
-        <p className="panel-kicker">If it helps</p>
+      <section className="chapter today-stretch" aria-label="Optional actions">
+        <p className="panel-kicker">Optional</p>
         <div className="stretch-list" role="list" aria-label="Optional support actions">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;

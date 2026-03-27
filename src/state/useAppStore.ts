@@ -49,8 +49,8 @@ export const useAppStore = () => {
               mode: shouldEscalate ? 'prolonged_safe_mode' : resolveTierRule(2).mode,
               riskTier: Math.max(state.safety.riskTier, 2) as SafetyTier,
               reason: shouldEscalate
-                ? 'Reset logged. Outgrow remains in prolonged safe mode with safety restrictions still active.'
-                : 'Reset logged. Outgrow remains in restricted safety mode with posting/coaching limits still active.',
+                ? 'Reset logged. Safety mode stays on for now.'
+                : 'Reset logged. Safety limits stay on for now.',
               hiddenProgress: true,
               flags: resolveTierRule(3).flags,
               resetRequests: nextResetRequests,
@@ -85,7 +85,7 @@ export const useAppStore = () => {
       },
       saveTodaySuccess: (date: string, statement: string) => {
         const trimmedStatement = statement.trim();
-        if (!trimmedStatement) return 'Write your own success definition before saving.';
+        if (!trimmedStatement) return 'Write your focus for today before saving.';
         persist({
           ...state,
           todaySuccessByDate: {
@@ -108,7 +108,7 @@ export const useAppStore = () => {
             {
               ...state.safety,
               isPaused: true,
-              reason: 'Safety restriction window is active. You can continue with low-risk support and try reset later.'
+              reason: 'Safety window is still active. You can try again later.'
             },
             { at, tier: state.safety.riskTier, type: 'manual_pause', note: 'Manual unpause blocked by active restriction window.' }
           );
@@ -139,9 +139,9 @@ export const useAppStore = () => {
         const riskAdjusted = applyTier(state, tier, tier >= 3
           ? 'Strong risk signals detected. Tracking and progress views are paused for safety.'
           : tier === 2
-            ? 'Elevated concern detected. Outgrow is simplifying support and disabling optimization surfaces.'
+            ? 'Higher risk detected. Outgrow is simplifying support and pausing optimization.'
             : tier === 1
-              ? 'Caution detected. Outgrow is softening language and keeping support low-pressure.'
+              ? 'Caution detected. Outgrow is softening language.'
               : '', at);
 
         if (riskAdjusted !== state) {
@@ -149,7 +149,7 @@ export const useAppStore = () => {
         }
 
         if (tier >= 3) {
-          return 'I’m pausing tracking for safety right now. You can use calm support and profile settings while this is active.';
+          return 'Tracking is paused for safety right now. You can still use support and profile settings.';
         }
 
         const integrity = evaluatePurposeIntegrity(screenedContent);
@@ -173,7 +173,7 @@ export const useAppStore = () => {
         const at = nowIso();
         const tier = detectSafetyTier(screened);
         const riskAdjusted = applyTier(state, tier, tier >= 2
-          ? 'Elevated concern detected in reflection content. Outgrow is reducing optimization intensity.'
+          ? 'Higher risk detected in reflection content. Outgrow is reducing planning features.'
           : tier === 1
             ? 'Caution detected in reflection content. Outgrow is softening support.'
             : '', at);
@@ -181,7 +181,7 @@ export const useAppStore = () => {
           persist(riskAdjusted);
         }
         if (!riskAdjusted.safety.flags.optimization_enabled) {
-          return 'Weekly optimization reflections are paused while safety mode is active.';
+          return 'Weekly reflections are paused while safety mode is active.';
         }
         persist({ ...riskAdjusted, weeklyReflections: [reflection, ...riskAdjusted.weeklyReflections] });
         return '';
@@ -192,7 +192,7 @@ export const useAppStore = () => {
         const at = nowIso();
         const tier = detectSafetyTier(screened);
         const riskAdjusted = applyTier(state, tier, tier >= 2
-          ? 'Elevated concern detected in return note. Outgrow is limiting tracking surfaces for safety.'
+          ? 'Higher risk detected in return note. Outgrow is limiting tracking for safety.'
           : tier === 1
             ? 'Caution detected in return note. Outgrow is softening support.'
             : '', at);
@@ -212,18 +212,18 @@ export const useAppStore = () => {
         const tier = detectSafetyTier(screenedRequest);
         const at = nowIso();
         const riskAdjusted = applyTier(state, tier, tier >= 3
-          ? 'Strong risk signals detected. Outgrow moved into constrained safety mode.'
+          ? 'Strong risk signals detected. Outgrow moved into safety mode.'
           : tier === 2
-            ? 'Elevated concern detected. Kind support is now bounded and less generative.'
-            : tier === 1
-              ? 'Caution detected. Kind support is softened and less precise.'
+            ? 'Higher risk detected. Kind support is now more limited.'
+          : tier === 1
+              ? 'Caution detected. Kind support is softened.'
               : '', at);
         if (riskAdjusted !== state) {
           persist(riskAdjusted);
         }
 
         if (tier >= 3) {
-          return 'I can’t continue normal coaching right now. Let’s keep this to calm support and trusted human help.';
+          return 'I can’t continue normal coaching right now. Let’s keep this simple and include trusted human support.';
         }
 
         const screenedResponse = sanitizeForShare(response);
@@ -248,9 +248,9 @@ export const useAppStore = () => {
         const at = nowIso();
         const tier = detectSafetyTier(screened);
         const riskAdjusted = applyTier(state, tier, tier >= 2
-          ? 'Elevated concern detected in community draft. Posting is being limited for safety.'
+          ? 'Higher risk detected in community draft. Posting is being limited for safety.'
           : tier === 1
-            ? 'Caution detected in community draft. Outgrow is softening support tone.'
+            ? 'Caution detected in community draft. Outgrow is softening tone.'
             : '', at);
         if (riskAdjusted !== state) {
           persist(riskAdjusted);

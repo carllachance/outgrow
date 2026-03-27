@@ -16,7 +16,7 @@ export const ProfileScreen = () => {
         </select>
       </Card>
       <Card title="Safety pause">
-        <p>When safety concerns are detected, optimization and progress framing pause by default.</p>
+        <p>When risk is detected, planning and progress tools pause by default.</p>
         <button onClick={() => setSafetyPause(!state.safety.isPaused, state.safety.isPaused ? '' : 'Manual pause for safer mode.') }>
           {state.safety.isPaused ? 'Resume (manual)' : 'Enable safety pause'}
         </button>
@@ -24,7 +24,7 @@ export const ProfileScreen = () => {
         <p>Mode: <strong>{state.safety.mode.replace(/_/g, ' ')}</strong> · Tier: <strong>{state.safety.riskTier}</strong></p>
         {state.safety.restrictionEndsAt ? <p>Restriction window ends: {new Date(state.safety.restrictionEndsAt).toLocaleString()}</p> : null}
         <p>Tracking: {state.safety.flags.tracking_enabled ? 'on' : 'off'} · Progress: {state.safety.flags.progress_visible ? 'visible' : 'hidden'} · Community posting: {state.safety.flags.community_posting_enabled ? 'on' : 'off'}</p>
-        <p>Reset is available only here and restores features gradually.</p>
+        <p>Safety reset is only available here and restores features gradually.</p>
         <button type="button" onClick={requestSafetyReset}>Request safety reset</button>
         {state.safety.eventLog[0] ? <p>Last safety event: {new Date(state.safety.eventLog[0].at).toLocaleString()} — {state.safety.eventLog[0].note}</p> : null}
       </Card>

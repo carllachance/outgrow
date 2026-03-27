@@ -19,26 +19,26 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <BrandHeader title="Be kind to yourself" note="Support without pressure." />
+      <BrandHeader title="Kind words" note="Short, steady support." />
       <Card>
-        <p className="muted">Generated support is guidance, not medical advice.</p>
-        <p className="muted">Support framing is anchored to your growth goal: {anchor}</p>
-        <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
+        <p className="muted">Not medical advice.</p>
+        <p className="muted">Grounded in your goal: {anchor}</p>
+        <button type="button" onClick={() => setInspire(getInspireLine())}>Give me a line</button>
         {inspire ? (
           <div className="generated-output" role="status" aria-live="polite">
             <p className="generated-output-copy">{inspire}</p>
           </div>
         ) : null}
       </Card>
-      <Card title="What feels hard right now">
-        <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="What do you need help with right now?" />
+      <Card title="What feels hard right now?">
+        <textarea value={request} onChange={(e) => setRequest(e.target.value)} placeholder="What do you need right now?" />
         <button
           disabled={state.safety.mode === 'prolonged_safe_mode' || !state.safety.flags.adaptive_coaching_enabled}
           type="button"
           onClick={() => {
             const trimmed = request.trim();
             if (!trimmed) {
-              setHandMessage('Share a little context so we can keep support specific and kind.');
+              setHandMessage('Add a little detail so I can help.');
               return;
             }
 
@@ -49,18 +49,17 @@ export const KindWordsScreen = () => {
             setRequest('');
           }}
         >
-          I could use a hand
+          Get support
         </button>
         {handMessage ? <p>{handMessage}</p> : null}
-        {state.safety.mode === 'prolonged_safe_mode' ? <p>Support stays in low-intensity mode right now. Keep requests short and gentle.</p> : null}
+        {state.safety.mode === 'prolonged_safe_mode' ? <p>Support is limited right now. Keep requests short.</p> : null}
       </Card>
       <Card title="Anonymous community shares">
         {isSafetyMode ? (
           <p className="muted">Community posting is paused while safety mode is active.</p>
         ) : (
           <>
-        <p className="muted">All submissions are screened before publish and may be blocked when risk is uncertain.</p>
-        <p className="muted">Share short authored notes to encourage others. Posts are screened before publish.</p>
+        <p className="muted">Posts are screened before publishing.</p>
         <label>
           Category
           <select value={category} onChange={(e) => setCategory(e.target.value as CommunityCategory)}>
@@ -74,13 +73,13 @@ export const KindWordsScreen = () => {
           value={communityPost}
           maxLength={260}
           onChange={(e) => setCommunityPost(e.target.value)}
-          placeholder="Share a small win or supportive note anonymously."
+          placeholder="Share a short note anonymously."
         />
         <button
           type="button"
           onClick={() => {
             const message = addCommunityShare(communityPost, category);
-            setPublishMessage(message || 'Shared anonymously. Thanks for contributing care.');
+            setPublishMessage(message || 'Shared anonymously.');
             if (!message || !message.includes('not publish')) {
               setCommunityPost('');
             }
@@ -97,7 +96,7 @@ export const KindWordsScreen = () => {
           <div key={share.id} className="community-item">
             <p><strong>{share.category}</strong> · {new Date(share.date).toLocaleDateString()}</p>
             <p>{share.content}</p>
-            <button type="button" onClick={() => flagCommunityShare(share.id)}>Report / remove</button>
+            <button type="button" onClick={() => flagCommunityShare(share.id)}>Report</button>
           </div>
         ))}
         {!isSafetyMode && !state.communityShares.some((share) => !share.isFlagged) ? <p>No shared notes yet.</p> : null}

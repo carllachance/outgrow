@@ -43,7 +43,7 @@ export const buildGrowthRecommendationContext = (onboarding: OnboardingState): G
 });
 
 export const growthIntentAnchor = (onboarding: OnboardingState): string => (
-  onboarding.longHorizon.trim() || 'I know I’ve Outgrown this app when… I make one values-aligned choice and keep returning.'
+  onboarding.longHorizon.trim() || 'I know I’ve outgrown this app when I can make steady choices and keep going.'
 );
 
 export const scoreGrowthIntentAlignment = (candidate: string, onboarding: OnboardingState): number => {
@@ -56,7 +56,7 @@ export const scoreGrowthIntentAlignment = (candidate: string, onboarding: Onboar
 
 export const growthIntentSupportLine = (onboarding: OnboardingState): string => {
   const anchor = growthIntentAnchor(onboarding);
-  return `Anchor: ${anchor}`;
+  return `Goal: ${anchor}`;
 };
 
 type SupportTone = 'gentle' | 'stretch' | 'teach' | 'simple';
@@ -80,24 +80,24 @@ export const todayNextStepFromStatedIntent = (onboarding: OnboardingState): stri
   }
 
   if (hasAny(narrative, ['snack', 'graz', 'late night'])) {
-    return 'One small step: plan one steady meal before late-night hunger hits.';
+    return 'Try this: plan one steady meal before late-night hunger hits.';
   }
   if (hasAny(narrative, ['picky', 'variety', 'expand', 'less picky'])) {
-    return 'Maybe start here: pair one familiar food with one small stretch.';
+    return 'Try this: pair one familiar food with one small stretch.';
   }
   if (hasAny(narrative, ['halal', 'cultural', 'meaningful'])) {
-    return 'A good next step: choose a grounded meal that still feels true to your style.';
+    return 'Try this: choose a grounded meal that still fits your style.';
   }
   if (hasAny(narrative, ['independ', 'own', 'less help', 'confidence'])) {
-    return 'A good next step: make one meal decision you can fully own today.';
+    return 'Try this: make one meal decision you can fully own today.';
   }
   if (focus) {
-    return 'Maybe start here: choose one doable action connected to your current focus.';
+    return 'Try this: choose one doable action tied to your current focus.';
   }
   if (weeklyLens) {
     return 'One small step: make one choice today that supports your week.';
   }
-  return 'One small step: pick one realistic action that fits what matters to you right now.';
+  return 'One small step: pick one realistic action for today.';
 };
 
 export const buildRecommendationPrompt = (userPrompt: string, onboarding: OnboardingState): string => {
@@ -129,19 +129,19 @@ export const explainGrowthAlignedSuggestion = (onboarding: OnboardingState): str
   const tone = supportTone(onboarding);
 
   const frictionLine = friction
-    ? `Built for the hard part right now: ${friction.slice(0, 78)}${friction.length > 78 ? '…' : ''}`
-    : 'Built for low-friction follow-through today.';
+    ? `Built around what feels hardest right now: ${friction.slice(0, 78)}${friction.length > 78 ? '…' : ''}`
+    : 'Built for easy follow-through today.';
   const longHorizonLine = longHorizonPriority(onboarding);
   const practicalLine = focus
     ? `Practical fit: ${focus.slice(0, 66)}${focus.length > 66 ? '…' : ''}`
-    : 'Practical fit: low-effort and realistic for tonight.';
+    : 'Practical fit: low effort for tonight.';
   const toneLine = tone === 'teach'
-    ? 'Tone: short why + repeatable steps.'
+    ? 'Style: short why + repeatable steps.'
     : tone === 'stretch'
-      ? 'Tone: one nearby stretch, not a leap.'
+      ? 'Style: one nearby stretch, not a leap.'
       : tone === 'simple'
-        ? 'Tone: predictable defaults with low cognitive load.'
-        : 'Tone: reassuring and low-pressure.';
+        ? 'Style: predictable defaults.'
+        : 'Style: calm and low-pressure.';
 
   return [frictionLine, longHorizonLine, practicalLine, toneLine].join(' ');
 };

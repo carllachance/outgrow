@@ -36,7 +36,7 @@ export const DayDetailScreen = () => {
       </header>
 
       <section className="chapter">
-        <h3>What you wrote</h3>
+        <h3>Your entries</h3>
         {authoredItems.length ? (
           <div className="stack compact">
             {authoredItems.map((item) => (
@@ -49,14 +49,14 @@ export const DayDetailScreen = () => {
           </div>
         ) : (
           <div>
-            <p><strong>Nothing written for this day</strong></p>
-            <p className="muted">This day can still show patterns from connected data, but there are no written entries here yet.</p>
+            <p><strong>No entries for this day</strong></p>
+            <p className="muted">You can still see connected data below.</p>
           </div>
         )}
       </section>
 
       <section className="chapter">
-        <h3>What the day looked like</h3>
+        <h3>Connected data</h3>
         {observedCards.length ? (
           <div className="stack compact">
             {observedCards.map((card) => (
@@ -68,8 +68,8 @@ export const DayDetailScreen = () => {
           </div>
         ) : (
           <div>
-            <p><strong>No connected day signals</strong></p>
-            <p className="muted">There is no linked wearable or app data for this day.</p>
+            <p><strong>No connected data</strong></p>
+            <p className="muted">No linked wearable or app data for this day.</p>
           </div>
         )}
       </section>
@@ -84,7 +84,7 @@ export const DayDetailScreen = () => {
                 <Link key={link.id} to={`/insights/${link.insightId}`} className="day-row-link">
                   <span className="day-row-date">{insight?.title ?? link.insightId}</span>
                   <span className="day-row-preview">{link.explanation ?? 'Included because parts of this day match the pattern.'}</span>
-                  <span className="reason-badge">Used in these patterns · {link.supportStrength} support</span>
+                  <span className="reason-badge">{link.supportStrength} support</span>
                   <span className="day-row-chevron" aria-hidden="true">›</span>
                 </Link>
               );
@@ -93,7 +93,7 @@ export const DayDetailScreen = () => {
         ) : (
           <div>
             <p><strong>No linked insights yet</strong></p>
-            <p className="muted">Nothing from this day has been tied to a broader pattern yet.</p>
+            <p className="muted">Nothing from this day is tied to a larger pattern yet.</p>
           </div>
         )}
       </section>
