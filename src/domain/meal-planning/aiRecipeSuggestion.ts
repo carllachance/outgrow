@@ -83,6 +83,11 @@ interface CandidateScoreBreakdown {
   total: number;
 }
 
+interface SeededRng {
+  nextFloat: () => number;
+  nextInt: (maxExclusive: number) => number;
+}
+
 const createIngredient = (template: IngredientTemplate, index: number): RecipeIngredient => ({
   id: `ing-${index + 1}`,
   rawText: `${template.quantity} ${template.unit} ${template.name}`,
@@ -96,6 +101,30 @@ const createIngredient = (template: IngredientTemplate, index: number): RecipeIn
 const arrayUnique = (values: string[]): string[] => Array.from(new Set(values));
 
 const promptSignature = (prompt: string): string => arrayUnique(tokenizePrompt(prompt)).sort().join('|');
+
+const hashStringToSeed = (value: string): number => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const createSeededRng = (seedInput: string): SeededRng => {
+  let state = hashStringToSeed(seedInput) || 0x6d2b79f5;
+  const nextFloat = () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    nextFloat,
+    nextInt: (maxExclusive: number) => Math.floor(nextFloat() * maxExclusive)
+  };
+};
 
 const createEmptyCoverageSnapshot = (): RecipeSuggestionCoverageSnapshot => ({
   proteinsShown: [],
@@ -128,11 +157,6 @@ export const createRecipeSuggestionContext = (prompt: string, seed: InitialSugge
   lastSteeringSignals: []
 });
 
-const rotate = <T,>(items: T[], offset: number): T[] => {
-  const normalizedOffset = ((offset % items.length) + items.length) % items.length;
-  return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
-};
-
 const MEAT_TOKENS = ['chicken', 'turkey', 'beef', 'pork', 'shrimp', 'salmon', 'fish'];
 const GLUTEN_INGREDIENT_KEYS = new Set(['orzo', 'farro', 'wheat', 'barley', 'rye', 'pasta', 'breadcrumbs']);
 const DAIRY_INGREDIENT_KEYS = new Set(['greek_yogurt', 'yogurt', 'milk', 'cream', 'butter', 'parmesan', 'cheese']);
@@ -151,17 +175,17 @@ const getHardBlockedTokens = (foodRules?: FoodRules): string[] => {
   return arrayUnique(blocked);
 };
 
-const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidateProfile[] => {
+const buildCandidatePool = (tokens: string[], random: SeededRng): RecipeCandidateProfile[] => {
   const wantsVegetarian = hasAnyToken(tokens, ['vegetarian', 'veggie', 'plant', 'meatless']);
   const wantsQuick = hasAnyToken(tokens, ['quick', 'fast', 'easy', 'simple', 'busy']);
   const wantsComfort = hasAnyToken(tokens, ['comfort', 'cozy', 'creamy']);
   const wantsSpicy = hasAnyToken(tokens, ['spicy', 'hot', 'chili']);
 
   const proteins = wantsVegetarian
-    ? ['chickpeas', 'tofu', 'lentils', 'white beans', 'tempeh', 'mushrooms']
-    : ['chicken breast', 'salmon', 'ground turkey', 'shrimp', 'pork tenderloin', 'lean beef'];
-  const bases = ['rice', 'quinoa', 'orzo', 'farro', 'potatoes', 'cauliflower rice'];
-  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach', 'asparagus', 'green beans', 'cabbage'];
+    ? ['chickpeas', 'tofu', 'lentils', 'white beans', 'tempeh', 'mushrooms', 'black beans']
+    : ['chicken breast', 'salmon', 'ground turkey', 'shrimp', 'pork tenderloin', 'lean beef', 'cod'];
+  const bases = ['rice', 'quinoa', 'orzo', 'farro', 'potatoes', 'cauliflower rice', 'sweet potato'];
+  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach', 'asparagus', 'green beans', 'cabbage', 'kale'];
   const flavors = wantsComfort
     ? ['Creamy Herb', 'Roasted Garlic Yogurt', 'Silky Lemon Dill', 'Parmesan Pepper']
     : wantsSpicy
@@ -172,27 +196,38 @@ const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidat
     : ['Roast + Simmer', 'Braise', 'Sheet Pan', 'One Pot', 'Slow Simmer'];
   const formats: Array<'bowl' | 'plate' | 'stew' | 'tacos'> = wantsQuick ? ['bowl', 'tacos', 'plate', 'stew'] : ['plate', 'stew', 'bowl', 'tacos'];
 
-  const shuffledProteins = rotate(proteins, iteration);
-  const shuffledBases = rotate(bases, Math.floor(iteration / 2));
-  const shuffledVegs = rotate(vegs, Math.floor(iteration / 3));
-
   const profiles: RecipeCandidateProfile[] = [];
-  for (let index = 0; index < 24; index += 1) {
-    profiles.push({
-      protein: shuffledProteins[index % shuffledProteins.length],
-      base: shuffledBases[index % shuffledBases.length],
-      veg: shuffledVegs[index % shuffledVegs.length],
-      flavor: flavors[index % flavors.length],
-      method: methods[index % methods.length],
-      format: formats[(index + Math.floor(iteration / 2)) % formats.length],
-      styleTag: wantsVegetarian ? 'vegetarian' : 'protein-forward',
-      quickTag: wantsQuick ? 'quick' : 'batch-cook',
-      spicy: wantsSpicy,
-      comfort: wantsComfort
-    });
+  for (const protein of proteins) {
+    for (const base of bases) {
+      for (const veg of vegs) {
+        for (const flavor of flavors) {
+          for (const method of methods) {
+            for (const format of formats) {
+              profiles.push({
+                protein,
+                base,
+                veg,
+                flavor,
+                method,
+                format,
+                styleTag: wantsVegetarian ? 'vegetarian' : 'protein-forward',
+                quickTag: wantsQuick ? 'quick' : 'batch-cook',
+                spicy: wantsSpicy,
+                comfort: wantsComfort
+              });
+            }
+          }
+        }
+      }
+    }
   }
 
-  return profiles;
+  for (let index = profiles.length - 1; index > 0; index -= 1) {
+    const swapWith = random.nextInt(index + 1);
+    [profiles[index], profiles[swapWith]] = [profiles[swapWith], profiles[index]];
+  }
+
+  return profiles.slice(0, 120);
 };
 
 const signatureFromProfile = (profile: RecipeCandidateProfile): string => (
@@ -299,21 +334,21 @@ const diversityAndClusterSignals = (profile: RecipeCandidateProfile, context: Re
   const coverage = context.sessionCoverage ?? createEmptyCoverageSnapshot();
 
   const rarityBonus = (
-    countSinceSeen(coverage.proteinsShown, traits.proteinFamily) * 0.18
-    + countSinceSeen(coverage.cuisinesShown, traits.cuisineFamily) * 0.2
-    + countSinceSeen(coverage.methodsShown, traits.methodFamily) * 0.18
-    + countSinceSeen(coverage.formatsShown, traits.formatFamily) * 0.15
-    + countSinceSeen(coverage.effortBucketsShown, traits.effortBucket) * 0.14
-    + countSinceSeen(coverage.richnessBucketsShown, traits.richnessBucket) * 0.15
+    countSinceSeen(coverage.proteinsShown, traits.proteinFamily) * 0.28
+    + countSinceSeen(coverage.cuisinesShown, traits.cuisineFamily) * 0.3
+    + countSinceSeen(coverage.methodsShown, traits.methodFamily) * 0.26
+    + countSinceSeen(coverage.formatsShown, traits.formatFamily) * 0.24
+    + countSinceSeen(coverage.effortBucketsShown, traits.effortBucket) * 0.2
+    + countSinceSeen(coverage.richnessBucketsShown, traits.richnessBucket) * 0.2
   );
 
   const underrepresentedBoost = (
-    (!coverage.proteinsShown.includes(traits.proteinFamily) ? 1.2 : 0)
-    + (!coverage.cuisinesShown.includes(traits.cuisineFamily) ? 1.2 : 0)
-    + (!coverage.methodsShown.includes(traits.methodFamily) ? 1.1 : 0)
-    + (!coverage.formatsShown.includes(traits.formatFamily) ? 0.9 : 0)
-    + (!coverage.effortBucketsShown.includes(traits.effortBucket) ? 0.6 : 0)
-    + (!coverage.richnessBucketsShown.includes(traits.richnessBucket) ? 0.6 : 0)
+    (!coverage.proteinsShown.includes(traits.proteinFamily) ? 2.1 : 0)
+    + (!coverage.cuisinesShown.includes(traits.cuisineFamily) ? 2.2 : 0)
+    + (!coverage.methodsShown.includes(traits.methodFamily) ? 1.8 : 0)
+    + (!coverage.formatsShown.includes(traits.formatFamily) ? 1.6 : 0)
+    + (!coverage.effortBucketsShown.includes(traits.effortBucket) ? 0.9 : 0)
+    + (!coverage.richnessBucketsShown.includes(traits.richnessBucket) ? 0.9 : 0)
   );
 
   const overlapDensity = recentPatternWindow.reduce((density, prior) => {
@@ -356,7 +391,7 @@ const tokenOverlap = (left: string, right: string): number => {
   return intersection / Math.max(leftSet.size, 1);
 };
 
-const WEEKLY_MEAL_ANCHORS = /\b(meal|dinner|lunch|breakfast|snack|cook|cooking|kitchen|recipe|grocery|cleanup|dishes|leftover|prep)\b/i;
+const WEEKLY_MEAL_ANCHORS = /\b(meals?|dinners?|lunch(?:es)?|breakfasts?|snacks?|cook|cooking|kitchen|recipes?|grocery|leftovers?|prep)\b/i;
 const GENERIC_PROMPT_TOKENS = new Set(['dinner', 'lunch', 'breakfast', 'meal', 'recipe', 'quick', 'easy', 'weeknight', 'healthy', 'comforting', 'protein', 'ideas']);
 const BROAD_PROMPT_TOKEN_COUNT_THRESHOLD = 5;
 
@@ -498,10 +533,22 @@ const weeklySignalScore = (candidate: RecipeCandidateProfile, signals: WeeklyMea
   if (!signals.length) return 0;
 
   return signals.reduce((score, signal) => {
-    if (signal.id === 'ease' && (candidate.quickTag === 'quick' || candidate.method === 'One Pot' || candidate.method === 'Sheet Pan')) return score + signal.boost;
-    if (signal.id === 'cleanup' && (candidate.method === 'One Pot' || candidate.method === 'Sheet Pan' || candidate.method === 'Skillet')) return score + signal.boost;
-    if (signal.id === 'comfort' && candidate.comfort) return score + signal.boost;
-    if (signal.id === 'logistics' && (candidate.quickTag === 'batch-cook' || candidate.method === 'One Pot' || candidate.base === 'rice' || candidate.base === 'farro')) return score + signal.boost;
+    if (signal.id === 'ease') {
+      return (candidate.quickTag === 'quick' || candidate.method === 'One Pot' || candidate.method === 'Sheet Pan')
+        ? score + signal.boost
+        : score - 0.35;
+    }
+    if (signal.id === 'cleanup') {
+      return (candidate.method === 'One Pot' || candidate.method === 'Sheet Pan' || candidate.method === 'Skillet')
+        ? score + signal.boost
+        : score - 0.65;
+    }
+    if (signal.id === 'comfort') return candidate.comfort ? score + signal.boost : score - 0.2;
+    if (signal.id === 'logistics') {
+      return (candidate.quickTag === 'batch-cook' || candidate.method === 'One Pot' || candidate.base === 'rice' || candidate.base === 'farro')
+        ? score + signal.boost
+        : score - 0.25;
+    }
     return score;
   }, 0);
 };
@@ -538,6 +585,7 @@ const chooseCandidate = (
     feedbackReasons?: RecipeFeedbackReason[];
     isInitialSuggestion?: boolean;
     broadPrompt?: boolean;
+    rng?: SeededRng;
   }
 ): { candidate: RecipeCandidateProfile; breakdown: CandidateScoreBreakdown } => {
   const scored = pool.map((candidate, index) => {
@@ -549,14 +597,14 @@ const chooseCandidate = (
     const wasSessionRepeat = context.sessionRecentSuggestionSignatures.includes(signature);
     const preferredBoost = context.preferredTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0.05), 0);
     const similarityScore = options?.targetSimilarityTo ? tokenOverlap(signature, options.targetSimilarityTo) : 0;
-    const nearDuplicatePenalty = options?.targetSimilarityTo && similarityScore >= 0.95 ? 3 : 0;
+    const nearDuplicatePenalty = options?.targetSimilarityTo && similarityScore >= 0.95 ? 6 : 0;
     const titleNearDuplicatePenalty = context.sessionRecentTitleSignatures.reduce((maxPenalty, priorTitleSignature) => {
       const similarity = tokenOverlap(candidateTitleSignature, priorTitleSignature);
-      if (similarity >= 0.95) return Math.max(maxPenalty, 7);
-      if (similarity >= 0.8) return Math.max(maxPenalty, 4.5);
+      if (similarity >= 0.95) return Math.max(maxPenalty, 10);
+      if (similarity >= 0.8) return Math.max(maxPenalty, 6.5);
       return maxPenalty;
     }, 0);
-    const repeatedPatternPenalty = context.sessionRecentPatternSignatures.includes(patternSignature) ? 6 : 0;
+    const repeatedPatternPenalty = context.sessionRecentPatternSignatures.includes(patternSignature) ? 8 : 0;
     const starterClusterSignature = initialClusterSignatureFromProfile(candidate);
     const initialSuggestionRecencyIndex = context.recentInitialSuggestionSignatures.indexOf(signature);
     const initialClusterRecencyIndex = context.recentInitialClusterSignatures.indexOf(starterClusterSignature);
@@ -567,25 +615,36 @@ const chooseCandidate = (
       ? (initialSuggestionRecencyPenalty + initialClusterRecencyPenalty) * initialStarterPenaltyScale
       : 0;
     const uniquePatternsInRecentWindow = new Set(context.sessionRecentPatternSignatures.slice(0, 8)).size;
-    const broaderExplorationPenalty = repeatedPatternPenalty > 0 && uniquePatternsInRecentWindow < 5 ? 4 : 0;
+    const broaderExplorationPenalty = repeatedPatternPenalty > 0 && uniquePatternsInRecentWindow < 5 ? 6 : 0;
     const weeklyScore = weeklySignalScore(candidate, options?.weeklySignals ?? []) * (options?.weeklyInfluenceScale ?? 0);
     const standingOrderScore = options?.foodRules
       ? profileStandingOrderScore(candidate, options.foodRules, options.promptTokens ?? [])
       : 0;
     const hardBlocked = profileViolatesHardRules(candidate, options?.blockedTokens ?? []);
     const diversitySignals = diversityAndClusterSignals(candidate, context);
+    const promptMatchedTokens = options?.promptTokens?.reduce((sum, token) => (
+      signature.includes(token) ? sum + 1 : sum
+    ), 0) ?? 0;
+    const promptScore = promptMatchedTokens * 0.55;
 
     const negativeFeedbackPenalty = scoreNegativeReasons(candidate, options?.feedbackReasons);
-    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty + diversitySignals.semanticClusterPenalty + starterRecencyPenalty;
+    const recentRecencyIndex = context.recentSuggestionSignatures.indexOf(signature);
+    const sessionRecencyIndex = context.sessionRecentSuggestionSignatures.indexOf(signature);
+    const recentDistancePenalty = recentRecencyIndex === -1 ? 0 : Math.max(0, 7 - recentRecencyIndex * 1.15);
+    const sessionDistancePenalty = sessionRecencyIndex === -1 ? 0 : Math.max(0, 12 - sessionRecencyIndex * 0.8);
+    const avoidedTokenPenalty = context.avoidedTokens.reduce((sum, token) => (
+      token && signature.includes(token) ? sum + 1.25 : sum
+    ), 0);
+    const noveltyPenalty = (wasRecent ? 5 : 0) + (wasSessionRepeat ? 11 : 0) + recentDistancePenalty + sessionDistancePenalty + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty + diversitySignals.semanticClusterPenalty + starterRecencyPenalty + avoidedTokenPenalty;
     const rejectionPenalty = isRejected ? 5 : 0;
     const duplicatePenalty = nearDuplicatePenalty + titleNearDuplicatePenalty;
 
-    let score = similarityScore + preferredBoost + weeklyScore + standingOrderScore + diversitySignals.diversityBonus;
+    let score = promptScore + similarityScore + preferredBoost + weeklyScore + standingOrderScore + diversitySignals.diversityBonus;
     score -= negativeFeedbackPenalty + noveltyPenalty + rejectionPenalty + duplicatePenalty;
     if (hardBlocked) score -= 100;
 
     const breakdown: CandidateScoreBreakdown = {
-      promptScore: 0,
+      promptScore,
       positiveFeedbackScore: similarityScore + preferredBoost,
       negativeFeedbackPenalty,
       standingOrderScore,
@@ -609,7 +668,22 @@ const chooseCandidate = (
   const scoredPool = explorationFirst.length ? explorationFirst : (notRecentOrRejected.length ? notRecentOrRejected : scored);
 
   scoredPool.sort((left, right) => right.score - left.score || left.index - right.index);
-  const winner = scoredPool[0] ?? scored[0];
+  const topScore = scoredPool[0]?.score ?? scored[0]?.score ?? 0;
+  const eligibleBand = scoredPool.filter((entry, index) => (
+    index < 12 && entry.score >= topScore - 1.8
+  ));
+  const randomizedBand = eligibleBand.length ? eligibleBand : scoredPool.slice(0, 1);
+  const rng = options?.rng ?? createSeededRng(`${topScore}|${context.iterations}`);
+  const weightedTotal = randomizedBand.reduce((sum, entry) => sum + Math.exp((entry.score - topScore) / 0.7), 0);
+  let ticket = rng.nextFloat() * weightedTotal;
+  let winner = randomizedBand[0] ?? scored[0];
+  for (const entry of randomizedBand) {
+    ticket -= Math.exp((entry.score - topScore) / 0.7);
+    if (ticket <= 0) {
+      winner = entry;
+      break;
+    }
+  }
   return { candidate: winner.candidate, breakdown: winner.breakdown };
 };
 
@@ -698,14 +772,25 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   }
 
   const weeklySignals = extractWeeklyMealSignals(input.weeklySuccessText);
-  const weeklyInfluenceScale = input.feedback ? 0.2 : 0.35;
+  const weeklyInfluenceScale = input.feedback ? 0.25 : 0.9;
   const tokens = tokenizePrompt(input.prompt);
   const broadPrompt = isBroadPrompt(tokens);
   const blockedTokens = getHardBlockedTokens(input.foodRules);
-  const openingRotationOffset = isInitialSuggestion
-    ? (baselineContext.recentInitialClusterSignatures.length % 9) + 1
-    : 0;
-  const pool = buildCandidatePool(tokens, baselineContext.iterations + openingRotationOffset);
+  const retrievalSeed = [
+    nextPromptSignature,
+    baselineContext.iterations,
+    nowIso,
+    input.feedback?.type ?? 'none',
+    feedbackRecipeSignature ?? '',
+    baselineContext.sessionRecentSuggestionSignatures.slice(0, 6).join('~'),
+    baselineContext.feedbackEvents[0]?.id ?? ''
+  ].join('::');
+  const retrievalRandom = createSeededRng(retrievalSeed);
+  const rawPool = buildCandidatePool(tokens, retrievalRandom);
+  const cleanupFocused = weeklySignals.some((signal) => signal.id === 'cleanup' && signal.confidence >= 0.7);
+  const pool = cleanupFocused
+    ? rawPool.filter((candidate) => ['One Pot', 'Sheet Pan', 'Skillet'].includes(candidate.method))
+    : rawPool;
   const similarityTarget = input.feedback?.type === 'more_like_this' ? feedbackRecipeSignature : baselineContext.positiveExampleSignatures[baselineContext.positiveExampleSignatures.length - 1];
   const selection = chooseCandidate(pool, baselineContext, {
     targetSimilarityTo: similarityTarget,
@@ -716,7 +801,8 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     promptTokens: tokens,
     feedbackReasons,
     isInitialSuggestion,
-    broadPrompt
+    broadPrompt,
+    rng: retrievalRandom
   });
   const recipe = buildRecipeFromProfile(selection.candidate, input.prompt, nowIso, {
     foodRules: input.foodRules,
