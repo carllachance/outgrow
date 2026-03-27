@@ -27,16 +27,16 @@ export const GrowthScreen = () => {
   return (
     <div className="screen">
       <h1>Long view</h1>
-      <p className="muted">Small steady steps add up.</p>
+      <p className="muted">Growth is measured in real plans kept, not motivational copy.</p>
       <Card title="Where this is heading">
         <p>{state.onboarding.longHorizon || 'Add your long-view goal in onboarding.'}</p>
       </Card>
       <Card title="Rhythm and season">
-        <p>The pace can change without progress disappearing. Hard weeks still count.</p>
+        <p>Hard weeks still count. What matters is returning to concrete meals and a workable plan.</p>
         <Link className="button-link" to="/meals">Open meal log</Link>
       </Card>
       <Card title="Independence signals">
-        <p className="muted">Progress means this gets easier to do on your own.</p>
+        <p className="muted">These are behavior markers from your own logs and planning actions.</p>
         {independenceSignals.map((signal) => <p key={signal}>{signal}</p>)}
       </Card>
       <Card title="Moments of return">
@@ -46,7 +46,7 @@ export const GrowthScreen = () => {
         ))}
       </Card>
       <Card title="Behavioral insights">
-        <p className="muted">Sorted by your goal. {growthIntentSupportLine(state.onboarding)}</p>
+        <p className="muted">Sorted by your goal and linked to observed days. {growthIntentSupportLine(state.onboarding)}</p>
         <div className="stack compact">
           {rankedInsights.map(({ insight, alignment }) => {
             const count = supportLinks.filter((link) => link.insightId === insight.id).length;
