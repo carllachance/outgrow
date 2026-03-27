@@ -4,9 +4,11 @@ import { getHandResponse, getInspireLine } from '../data/mockSupport';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 import type { CommunityCategory } from '../types';
+import { growthIntentAnchor } from '../state/growthIntent';
 
 export const KindWordsScreen = () => {
   const { state, addKindWord, addCommunityShare, flagCommunityShare } = useStore();
+  const anchor = growthIntentAnchor(state.onboarding);
   const isSafetyMode = !state.safety.flags.community_posting_enabled;
   const [inspire, setInspire] = useState('');
   const [request, setRequest] = useState('');
@@ -20,6 +22,7 @@ export const KindWordsScreen = () => {
       <BrandHeader title="Be kind to yourself" note="Support without pressure." />
       <Card>
         <p className="muted">Generated support is guidance, not medical advice.</p>
+        <p className="muted">Support framing is anchored to your growth goal: {anchor}</p>
         <button type="button" onClick={() => setInspire(getInspireLine())}>Inspire me</button>
         {inspire ? (
           <div className="generated-output" role="status" aria-live="polite">
@@ -39,7 +42,8 @@ export const KindWordsScreen = () => {
               return;
             }
 
-            const generated = getHandResponse(trimmed);
+            const framedRequest = `${trimmed}\n\nContext for tone: ${anchor}`;
+            const generated = getHandResponse(framedRequest);
             const storeMessage = addKindWord(trimmed, generated.response);
             setHandMessage([storeMessage, generated.response].filter(Boolean).join(' ').trim());
             setRequest('');

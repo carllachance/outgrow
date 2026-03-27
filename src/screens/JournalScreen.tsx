@@ -3,6 +3,7 @@ import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
 import { Link, useLocation } from 'react-router-dom';
 import { buildDayContexts } from '../state/insightProvenance';
+import { growthIntentAnchor } from '../state/growthIntent';
 
 export const JournalScreen = () => {
   const { state, addJournalEntry, addReflection } = useStore();
@@ -18,6 +19,7 @@ export const JournalScreen = () => {
   const [adapt, setAdapt] = useState('');
   const [integrityMessage, setIntegrityMessage] = useState('');
   const recentDays = buildDayContexts(state).slice(0, 5);
+  const anchor = growthIntentAnchor(state.onboarding);
 
   const submitEntry = (event: FormEvent) => {
     event.preventDefault();
@@ -66,11 +68,12 @@ export const JournalScreen = () => {
         <div className="inline-actions" style={{ marginBottom: '10px' }}>
           <Link className="button-link" to="/journal/reflections">View reflection history</Link>
         </div>
+        <p className="muted">Reflect against your anchor statement: {anchor}</p>
         <form onSubmit={submitReflection} className="stack compact">
-          <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked?" />
-          <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What didn't hold up?" />
-          <textarea value={change} onChange={(e) => setChange(e.target.value)} placeholder="What would you change?" />
-          <textarea value={adapt} onChange={(e) => setAdapt(e.target.value)} placeholder="Should we adapt for next week?" />
+          <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked in support of your anchor?" />
+          <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What got in the way of your anchor?" />
+          <textarea value={change} onChange={(e) => setChange(e.target.value)} placeholder="What would you change to stay aligned?" />
+          <textarea value={adapt} onChange={(e) => setAdapt(e.target.value)} placeholder="How should next week adapt to better support your anchor?" />
           <button type="submit">Save weekly reflection</button>
         </form>
       </Card>

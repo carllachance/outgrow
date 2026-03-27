@@ -1,14 +1,17 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
+import { growthIntentAnchor } from '../state/growthIntent';
 
 export const ReflectionHistoryScreen = () => {
   const { state } = useStore();
+  const anchor = growthIntentAnchor(state.onboarding);
 
   return (
     <div className="screen">
       <h1>Weekly reflection history</h1>
       <p className="muted">Browse saved weekly reflections and reopen any week for full detail.</p>
+      <p className="muted">Anchor reference: {anchor}</p>
       <Card title="Saved reflections">
         {!state.safety.flags.progress_visible ? <p>Reflection history is hidden while safety mode is active.</p> : null}
         {state.safety.flags.progress_visible && state.weeklyReflections.length === 0 ? <p>No weekly reflections yet. Save one from Journal to start your history.</p> : null}
