@@ -1,5 +1,16 @@
 import { defaultState } from './defaultState';
-import type { AppState, FoodComponent, MealKind, MealLogEntry, TimeMode } from '../types';
+import type {
+  AppState,
+  FoodComponent,
+  Goal,
+  GoalRefinementSuggestion,
+  GoalRevisionHistory,
+  MealKind,
+  MealLogEntry,
+  PlanItem,
+  PlanItemType,
+  TimeMode
+} from '../types';
 
 const VALID_MEAL_KINDS: MealKind[] = ['breakfast', 'lunch', 'dinner', 'snack', 'drink', 'unknown'];
 const VALID_TIME_MODES: TimeMode[] = ['soft', 'exact', 'unknown'];
@@ -65,13 +76,96 @@ const sanitizeMealLog = (value: unknown): MealLogEntry | null => {
   };
 };
 
+const sanitizeGoal = (value: unknown): Goal | null => {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<Goal>;
+  if (!candidate.id || !candidate.original_text || !candidate.active_display_text) return null;
+
+  return {
+    id: String(candidate.id),
+    user_id: String(candidate.user_id ?? 'local-user'),
+    original_text: String(candidate.original_text),
+    active_display_text: String(candidate.active_display_text),
+    created_at: String(candidate.created_at ?? new Date().toISOString()),
+    updated_at: String(candidate.updated_at ?? new Date().toISOString()),
+    status: candidate.status === 'archived' || candidate.status === 'superseded' ? candidate.status : 'active'
+  };
+};
+
+const sanitizeGoalRevisionHistory = (value: unknown): GoalRevisionHistory[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<GoalRevisionHistory>;
+      if (!candidate.id || !candidate.goal_id || !candidate.prior_text || !candidate.new_text) return null;
+      return {
+        id: String(candidate.id),
+        goal_id: String(candidate.goal_id),
+        prior_text: String(candidate.prior_text),
+        new_text: String(candidate.new_text),
+        revision_source: candidate.revision_source === 'suggestion_accept' || candidate.revision_source === 'migration'
+          ? candidate.revision_source
+          : 'user_edit',
+        created_at: String(candidate.created_at ?? new Date().toISOString())
+      } satisfies GoalRevisionHistory;
+    })
+    .filter(Boolean) as GoalRevisionHistory[];
+};
+
+const VALID_PLAN_ITEM_TYPES: PlanItemType[] = ['reminder', 'meal', 'snack', 'movement', 'sleep', 'routine', 'reflection', 'other'];
+
+const sanitizeGoalRefinementSuggestions = (value: unknown): GoalRefinementSuggestion[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<GoalRefinementSuggestion>;
+      if (!candidate.id || !candidate.goal_id || !candidate.suggested_text) return null;
+      return {
+        id: String(candidate.id),
+        goal_id: String(candidate.goal_id),
+        suggested_text: String(candidate.suggested_text),
+        rationale_short: String(candidate.rationale_short ?? ''),
+        created_at: String(candidate.created_at ?? new Date().toISOString()),
+        accepted_at: typeof candidate.accepted_at === 'string' ? candidate.accepted_at : undefined,
+        dismissed_at: typeof candidate.dismissed_at === 'string' ? candidate.dismissed_at : undefined
+      } satisfies GoalRefinementSuggestion;
+    })
+    .filter(Boolean) as GoalRefinementSuggestion[];
+};
+
+const sanitizePlanItems = (value: unknown): PlanItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<PlanItem>;
+      if (!candidate.id || !candidate.title) return null;
+      return {
+        id: String(candidate.id),
+        item_type: VALID_PLAN_ITEM_TYPES.includes(candidate.item_type as PlanItemType) ? candidate.item_type as PlanItemType : 'other',
+        title: String(candidate.title),
+        description: typeof candidate.description === 'string' ? candidate.description : undefined,
+        cadence: typeof candidate.cadence === 'string' ? candidate.cadence : undefined,
+        status: candidate.status === 'done' || candidate.status === 'archived' ? candidate.status : 'active',
+        source_type: candidate.source_type === 'system_suggested' || candidate.source_type === 'system_confirmed' || candidate.source_type === 'onboarding_seeded'
+          ? candidate.source_type
+          : 'user_added',
+        created_at: String(candidate.created_at ?? new Date().toISOString()),
+        updated_at: String(candidate.updated_at ?? new Date().toISOString())
+      } satisfies PlanItem;
+    })
+    .filter(Boolean) as PlanItem[];
+};
+
 export const hydrateAppState = (raw: string | null): AppState => {
   if (!raw) return defaultState;
 
   try {
     const parsed = { ...defaultState, ...JSON.parse(raw) } as AppState;
     const onboardingStep = parsed.onboarding?.activeStep;
-    const sanitizedOnboardingStep: 1 | 2 | 3 | 4 = onboardingStep === 2 || onboardingStep === 3 || onboardingStep === 4 ? onboardingStep : 1;
+    const sanitizedOnboardingStep: 1 | 2 | 3 = onboardingStep === 2 || onboardingStep === 3 ? onboardingStep : 1;
     return {
       ...parsed,
       onboarding: {
@@ -80,6 +174,10 @@ export const hydrateAppState = (raw: string | null): AppState => {
         activeStep: sanitizedOnboardingStep,
         hasCompleted: Boolean(parsed.onboarding?.hasCompleted)
       },
+      goal: sanitizeGoal(parsed.goal),
+      goalRevisionHistory: sanitizeGoalRevisionHistory(parsed.goalRevisionHistory),
+      goalRefinementSuggestions: sanitizeGoalRefinementSuggestions(parsed.goalRefinementSuggestions),
+      planItems: sanitizePlanItems(parsed.planItems),
       todaySuccessByDate:
         parsed.todaySuccessByDate && typeof parsed.todaySuccessByDate === 'object'
           ? parsed.todaySuccessByDate

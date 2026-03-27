@@ -1,7 +1,8 @@
-import { FormEvent } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WelcomeHero } from '../components/brand/WelcomeHero';
 import { useStore } from '../state/AppStoreContext';
+import { buildGoalRefinementSuggestions } from '../state/goalRefinement';
 
 const startingPointOptions = [
   'Plan two dinners before busy days',
@@ -16,20 +17,38 @@ const supportStyleOptions = [
 ] as const;
 
 export const OnboardingScreen = () => {
-  const { state, updateOnboarding, updateProfile } = useStore();
+  const {
+    state,
+    updateOnboarding,
+    updateProfile,
+    setGoalText,
+    addPlanItem
+  } = useStore();
   const navigate = useNavigate();
   const activeStep = state.onboarding.activeStep;
   const totalSteps = 3;
+  const [goalDraft, setGoalDraft] = useState(state.goal?.active_display_text ?? '');
+  const [selectedStartingPoint, setSelectedStartingPoint] = useState('');
+  const [weeklyPlanDraft, setWeeklyPlanDraft] = useState('');
 
-  const goToStep = (step: 1 | 2 | 3 | 4) => {
+  const goToStep = (step: 1 | 2 | 3) => {
     updateOnboarding({ activeStep: step });
   };
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    setGoalText(goalDraft, 'migration');
+    if (selectedStartingPoint.trim()) {
+      addPlanItem(selectedStartingPoint, 'routine', 'onboarding_seeded');
+    }
+    if (weeklyPlanDraft.trim()) {
+      addPlanItem(weeklyPlanDraft, 'routine', 'onboarding_seeded');
+    }
     updateOnboarding({ hasCompleted: true, activeStep: 3 });
     navigate('/today');
   };
+
+  const visibleGoalSuggestions = useMemo(() => buildGoalRefinementSuggestions(goalDraft), [goalDraft]);
 
   return (
     <div className="screen onboarding-screen">
@@ -46,13 +65,35 @@ export const OnboardingScreen = () => {
         {activeStep === 1 ? (
           <section className="chapter" aria-labelledby="onboarding-step-one">
           <p className="panel-kicker">Step one</p>
-          <h2 id="onboarding-step-one">What does a calmer food week look like for you?</h2>
-          <p>One sentence is enough. We&apos;ll use this as your direction.</p>
+          <h2 id="onboarding-step-one">What are you working toward right now?</h2>
+          <p>Use your own words. One sentence is enough to start.</p>
           <textarea
-            value={state.onboarding.longHorizon}
-            onChange={(e) => updateOnboarding({ longHorizon: e.target.value })}
-            placeholder="I trust myself to eat in a way that fits my life."
+            value={goalDraft}
+            onChange={(e) => setGoalDraft(e.target.value)}
+            placeholder="I want simple lunches so weekdays feel easier."
           />
+          {visibleGoalSuggestions.length ? (
+            <div>
+              <p>I can help tighten the wording a bit while keeping what you mean.</p>
+              <div className="stack compact">
+                {visibleGoalSuggestions.map((suggestion) => (
+                  <div key={suggestion.suggestedText}>
+                    <p><strong>{suggestion.suggestedText}</strong></p>
+                    <p>{suggestion.rationaleShort}</p>
+                    <button
+                      type="button"
+                      onClick={() => setGoalDraft(suggestion.suggestedText)}
+                    >
+                      Use this wording
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <p>Do you already have a plan you want me to help you stay on track with?</p>
+          <p>Want help building a realistic framework around your goal?</p>
+          <p>You can revisit and revise your goals and plans anytime.</p>
           <input
             value={state.profile.name}
             onChange={(e) => updateProfile(e.target.value, state.profile.pronouns ?? '')}
@@ -61,7 +102,10 @@ export const OnboardingScreen = () => {
           <button
             type="button"
             className="primary-cta"
-            onClick={() => goToStep(2)}
+            onClick={() => {
+              setGoalText(goalDraft, 'migration');
+              goToStep(2);
+            }}
           >
             Continue
           </button>
@@ -71,8 +115,8 @@ export const OnboardingScreen = () => {
         {activeStep === 2 ? (
           <section className="chapter" aria-labelledby="onboarding-friction-step">
           <p className="panel-kicker">Step two</p>
-          <h2 id="onboarding-friction-step">What usually makes meals harder than they need to be?</h2>
-          <p>Keep it practical: schedule, energy, shopping, or prep.</p>
+          <h2 id="onboarding-friction-step">What tends to make this harder than it needs to be?</h2>
+          <p>Keep it practical: time, energy, routine, environment, or follow-through.</p>
           <textarea
             value={state.onboarding.optionalNarrative}
             onChange={(e) => updateOnboarding({ optionalNarrative: e.target.value })}
@@ -111,16 +155,16 @@ export const OnboardingScreen = () => {
               <button
                 key={option}
                 type="button"
-                className={`choice-chip ${state.onboarding.currentFocus === option ? 'active' : ''}`}
-                onClick={() => updateOnboarding({ currentFocus: option })}
+                className={`choice-chip ${selectedStartingPoint === option ? 'active' : ''}`}
+                onClick={() => setSelectedStartingPoint(option)}
               >
                 {option}
               </button>
             ))}
           </div>
           <textarea
-            value={state.onboarding.weeklyLens}
-            onChange={(e) => updateOnboarding({ weeklyLens: e.target.value })}
+            value={weeklyPlanDraft}
+            onChange={(e) => setWeeklyPlanDraft(e.target.value)}
             placeholder="This week I’ll plan two easy dinners before my busiest days and keep one fallback meal ready."
           />
           <button type="button" onClick={() => goToStep(2)}>Back</button>

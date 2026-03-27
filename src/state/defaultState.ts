@@ -5,10 +5,11 @@ export const defaultState: AppState = {
     name: '',
     pronouns: ''
   },
+  goal: null,
+  goalRevisionHistory: [],
+  goalRefinementSuggestions: [],
+  planItems: [],
   onboarding: {
-    longHorizon: '',
-    weeklyLens: '',
-    currentFocus: '',
     optionalNarrative: '',
     expectedTimeline: '',
     supportTier: 'Active',

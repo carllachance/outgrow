@@ -2,13 +2,19 @@ import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
 import { Link } from 'react-router-dom';
 import { buildInsightSupportLinks, insightLibrary } from '../state/insightProvenance';
-import { growthIntentSupportLine, scoreGrowthIntentAlignment } from '../state/growthIntent';
+import { growthIntentSupportLine, scoreGrowthIntentAlignment, type GrowthIntentInput } from '../state/growthIntent';
 
 export const GrowthScreen = () => {
   const { state, addReturnMoment } = useStore();
   const isSafetyMode = !state.safety.flags.tracking_enabled;
   const progressHiddenMessage = 'Progress is temporarily hidden while safety mode is active.';
   const supportLinks = state.insightSupportLinks.length ? state.insightSupportLinks : buildInsightSupportLinks(state);
+  const growthIntentInput: GrowthIntentInput = {
+    goalText: state.goal?.active_display_text ?? '',
+    planHighlights: state.planItems.filter((item) => item.status === 'active').map((item) => item.title),
+    optionalNarrative: state.onboarding.optionalNarrative,
+    supportTier: state.onboarding.supportTier
+  };
   const recentMealPlans = state.journalEntries.filter((entry) => entry.content.startsWith('Today plan (')).length;
   const reliableReturns = state.returnMoments.length;
   const reflectionCadence = state.weeklyReflections.length;
@@ -20,7 +26,7 @@ export const GrowthScreen = () => {
   const rankedInsights = [...insightLibrary]
     .map((insight) => ({
       insight,
-      alignment: scoreGrowthIntentAlignment(`${insight.title} ${insight.statement}`, state.onboarding)
+      alignment: scoreGrowthIntentAlignment(`${insight.title} ${insight.statement}`, growthIntentInput)
     }))
     .sort((left, right) => right.alignment - left.alignment || left.insight.title.localeCompare(right.insight.title));
 
@@ -29,7 +35,7 @@ export const GrowthScreen = () => {
       <h1>Long view</h1>
       <p className="muted">Growth is measured in real plans kept, not motivational copy.</p>
       <Card title="Where this is heading">
-        <p>{state.onboarding.longHorizon || 'Add your long-view goal in onboarding.'}</p>
+        <p>{state.goal?.active_display_text || 'Add your long-view goal in onboarding.'}</p>
       </Card>
       <Card title="Rhythm and season">
         <p>Hard weeks still count. What matters is returning to concrete meals and a workable plan.</p>
@@ -46,7 +52,7 @@ export const GrowthScreen = () => {
         ))}
       </Card>
       <Card title="Behavioral insights">
-        <p className="muted">Sorted by your goal and linked to observed days. {growthIntentSupportLine(state.onboarding)}</p>
+        <p className="muted">Sorted by your goal and linked to observed days. {growthIntentSupportLine(growthIntentInput)}</p>
         <div className="stack compact">
           {rankedInsights.map(({ insight, alignment }) => {
             const count = supportLinks.filter((link) => link.insightId === insight.id).length;

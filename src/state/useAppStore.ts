@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { defaultState } from './defaultState';
-import type { AppState, CommunityCategory, JournalEntry, KindWordEntry, MealLogEntry, Reflection } from '../types';
+import type { AppState, CommunityCategory, GoalRevisionSource, JournalEntry, KindWordEntry, MealLogEntry, Reflection } from '../types';
 import { detectSafetyTier, evaluatePurposeIntegrity, sanitizeForShare, type SafetyTier } from '../data/purposeIntegrity';
 import { outgrowSafetyRuntimePolicy, resolveTierRule } from '../data/safetyRuntimePolicy';
 import { applyTier, appendSafetyEvent, isRestrictionActive } from './safetyState';
 import { hydrateAppState } from './hydrateState';
 import { canUseMealLogging } from './mealLogSummary';
 import { buildInsightSupportLinks } from './insightProvenance';
+import { buildGoalRefinementSuggestions } from './goalRefinement';
 
 const STORAGE_KEY = 'outgrow-mvp-state-v1';
 const PROLONGED_SAFE_BASE_HOURS = outgrowSafetyRuntimePolicy.prolonged_safe_mode.base_duration_hours;
@@ -67,6 +68,161 @@ export const useAppStore = () => {
       },
       updateOnboarding: (partial: Partial<AppState['onboarding']>) => {
         persist({ ...state, onboarding: { ...state.onboarding, ...partial } });
+      },
+      setGoalText: (goalText: string, revisionSource: GoalRevisionSource = 'user_edit') => {
+        const trimmedGoalText = goalText.trim();
+        if (!trimmedGoalText) return 'Write what you are working toward before saving.';
+        const at = nowIso();
+        const existingGoal = state.goal;
+
+        if (!existingGoal) {
+          const createdGoalId = crypto.randomUUID();
+          persist({
+            ...state,
+            goal: {
+              id: createdGoalId,
+              user_id: 'local-user',
+              original_text: trimmedGoalText,
+              active_display_text: trimmedGoalText,
+              created_at: at,
+              updated_at: at,
+              status: 'active'
+            },
+            goalRefinementSuggestions: buildGoalRefinementSuggestions(trimmedGoalText).map((suggestion) => ({
+              id: crypto.randomUUID(),
+              goal_id: createdGoalId,
+              suggested_text: suggestion.suggestedText,
+              rationale_short: suggestion.rationaleShort,
+              created_at: at
+            }))
+          });
+          return '';
+        }
+
+        if (existingGoal.active_display_text === trimmedGoalText) return '';
+
+        persist({
+          ...state,
+          goal: {
+            ...existingGoal,
+            active_display_text: trimmedGoalText,
+            updated_at: at,
+            status: 'active'
+          },
+          goalRevisionHistory: [
+            {
+              id: crypto.randomUUID(),
+              goal_id: existingGoal.id,
+              prior_text: existingGoal.active_display_text,
+              new_text: trimmedGoalText,
+              revision_source: revisionSource,
+              created_at: at
+            },
+            ...state.goalRevisionHistory
+          ],
+          goalRefinementSuggestions: buildGoalRefinementSuggestions(trimmedGoalText).map((suggestion) => ({
+            id: crypto.randomUUID(),
+            goal_id: existingGoal.id,
+            suggested_text: suggestion.suggestedText,
+            rationale_short: suggestion.rationaleShort,
+            created_at: at
+          }))
+        });
+        return '';
+      },
+      acceptGoalSuggestion: (suggestionId: string) => {
+        const suggestion = state.goalRefinementSuggestions.find((entry) => entry.id === suggestionId);
+        if (!suggestion) return 'Suggestion not found.';
+        const message = state.goal && state.goal.id === suggestion.goal_id
+          ? ''
+          : 'Start by saving your goal wording once before applying suggestions.';
+        if (message) return message;
+
+        const goalMessage = ((): string => {
+          const currentGoal = state.goal;
+          if (!currentGoal) return 'Goal not found.';
+          const trimmedGoalText = suggestion.suggested_text.trim();
+          if (!trimmedGoalText) return 'Suggestion is empty.';
+          const at = nowIso();
+          if (currentGoal.active_display_text !== trimmedGoalText) {
+            persist({
+              ...state,
+              goal: {
+                ...currentGoal,
+                active_display_text: trimmedGoalText,
+                updated_at: at
+              },
+              goalRevisionHistory: [
+                {
+                  id: crypto.randomUUID(),
+                  goal_id: currentGoal.id,
+                  prior_text: currentGoal.active_display_text,
+                  new_text: trimmedGoalText,
+                  revision_source: 'suggestion_accept',
+                  created_at: at
+                },
+                ...state.goalRevisionHistory
+              ],
+              goalRefinementSuggestions: state.goalRefinementSuggestions.map((entry) =>
+                entry.id === suggestionId
+                  ? { ...entry, accepted_at: at, dismissed_at: undefined }
+                  : entry
+              )
+            });
+          } else {
+            persist({
+              ...state,
+              goalRefinementSuggestions: state.goalRefinementSuggestions.map((entry) =>
+                entry.id === suggestionId
+                  ? { ...entry, accepted_at: at, dismissed_at: undefined }
+                  : entry
+              )
+            });
+          }
+          return '';
+        })();
+
+        return goalMessage;
+      },
+      dismissGoalSuggestion: (suggestionId: string) => {
+        const suggestionExists = state.goalRefinementSuggestions.some((entry) => entry.id === suggestionId);
+        if (!suggestionExists) return;
+        persist({
+          ...state,
+          goalRefinementSuggestions: state.goalRefinementSuggestions.map((entry) =>
+            entry.id === suggestionId
+              ? { ...entry, dismissed_at: nowIso(), accepted_at: undefined }
+              : entry
+          )
+        });
+      },
+      addPlanItem: (
+        title: string,
+        itemType: AppState['planItems'][number]['item_type'] = 'other',
+        sourceType: AppState['planItems'][number]['source_type'] = 'user_added'
+      ) => {
+        const trimmedTitle = title.trim();
+        if (!trimmedTitle) return 'Write a small plan step before adding.';
+        const at = nowIso();
+        persist({
+          ...state,
+          planItems: [
+            {
+              id: crypto.randomUUID(),
+              item_type: itemType,
+              title: trimmedTitle,
+              status: 'active',
+              source_type: sourceType,
+              created_at: at,
+              updated_at: at
+            },
+            ...state.planItems
+          ]
+        });
+        return '';
+      },
+      removePlanItem: (id: string) => {
+        persist({ ...state, planItems: state.planItems.filter((item) => item.id !== id) });
       },
       updateFoodRules: (partial: Partial<AppState['foodRules']>) => {
         const normalizeList = (entries: string[] | undefined): string[] | undefined => entries
