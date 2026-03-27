@@ -76,7 +76,7 @@ export const MealPlannerScreen = () => {
   const [servings, setServings] = useState(2);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(defaultPantry);
   const [actionMessage, setActionMessage] = useState('');
-  const [showRejectionReasons, setShowRejectionReasons] = useState(false);
+  const [showRejectionReasons, setShowRejectionReasons] = useState(true);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
   const [suggestionContext, setSuggestionContext] = useState(() => createRecipeSuggestionContext(prompt));
@@ -127,7 +127,7 @@ export const MealPlannerScreen = () => {
     setServings(savedDraft.servingsDefault || servings);
 
     const steeringNote = suggested.context.lastSteeringSignals?.[0] ? ` ${suggested.context.lastSteeringSignals[0]}` : '';
-    setShowRejectionReasons(false);
+    setShowRejectionReasons(true);
     setSelectedRejectionReasons([]);
 
     if (feedback === 'not_for_me') {
@@ -202,37 +202,124 @@ export const MealPlannerScreen = () => {
   };
 
   return (
-    <section className="screen">
-      <header>
-        <h1>Meal planner</h1>
-        <p className="muted">Prompt first, then move the draft into tonight, your plan, shopping, or recipe library.</p>
+    <section className="screen meal-planner-screen">
+      <header className="planner-header">
+        <div className="planner-brand">
+          <img src="/assets/logo/outgrow-mark.svg" alt="Harvest style mark" className="planner-brand-mark" />
+          <h1 className="planner-brand-name">Harvest</h1>
+        </div>
+        <button type="button" className="planner-settings" aria-label="Planner settings">⚙</button>
       </header>
 
-      <Card title="What do you need tonight?">
-        <label>
-          Tell the chef what you need
+      <section className="planner-intro">
+        <h2 className="planner-title">What do you need tonight?</h2>
+        <p className="planner-subtitle">Let&apos;s find something nourishing.</p>
+        <div className="planner-prompt-wrap">
           <textarea
-            rows={3}
+            rows={2}
             value={prompt}
             onChange={(event) => {
               const nextPrompt = event.target.value;
               setPrompt(nextPrompt);
               setSuggestionContext(createRecipeSuggestionContext(nextPrompt));
             }}
-            placeholder="Example: vegetarian dinner with pantry staples, 30 minutes max"
+            className="planner-prompt-input"
+            placeholder="I have salmon and spinach..."
+            aria-label="Tell the chef what you need"
           />
-        </label>
-        <div className="meal-actions">
+          <button type="button" onClick={() => handleSuggestRecipe('neutral')} className="planner-sparkle-button" aria-label="Suggest recipe">
+            ✨
+          </button>
+        </div>
+        <div className="planner-chip-row" aria-label="Prompt suggestions">
           {quickPrompts.map((example) => (
-            <button key={example} type="button" onClick={() => { setPrompt(example); setSuggestionContext(createRecipeSuggestionContext(example)); }}>{example}</button>
+            <button key={example} type="button" className="planner-chip" onClick={() => { setPrompt(example); setSuggestionContext(createRecipeSuggestionContext(example)); }}>{example}</button>
           ))}
         </div>
-        <div className="meal-actions">
-          <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest recipe</button>
-        </div>
-      </Card>
+      </section>
 
-      <Card title="Food standing orders + restrictions">
+      <article className="planner-featured-card">
+        <div className="planner-recipe-image" role="img" aria-label="Roasted sheet pan chicken">
+          <div className="planner-image-meta">
+            <span>{recipe.totalTimeMin} min</span>
+            <span>{servings} servings</span>
+          </div>
+        </div>
+        <h3 className="planner-recipe-title serif">{recipe.title}</h3>
+        <p className="planner-recipe-description">{recipe.description}</p>
+        <p className="planner-source-note">Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
+        <div className="planner-ingredients-card">
+          <p className="planner-ingredients-label">Ingredients on hand</p>
+          <div className="planner-inline-chips">
+            {recipe.ingredients.slice(0, 2).map((ingredient) => (
+              <span key={ingredient.id} className="planner-inline-chip">{ingredient.displayName}</span>
+            ))}
+            {recipe.ingredients.slice(2).map((ingredient) => (
+              <span key={ingredient.id} className="planner-inline-chip planner-inline-chip-buy">+ Buy {ingredient.displayName}</span>
+            ))}
+          </div>
+        </div>
+        <div className="planner-primary-actions">
+          <button type="button" onClick={handleUseTonight} className="planner-cta-main">Use tonight</button>
+          <button type="button" onClick={handleAddToPlan} className="planner-cta-secondary">Add to plan</button>
+        </div>
+        <div className="planner-secondary-actions">
+          <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
+          <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
+          <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>{showRejectionReasons ? 'Hide not-for-me reasons' : 'Not for me'}</button>
+          <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
+          <button type="button" onClick={handleRecipeCard}>Print / share</button>
+          <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>
+        </div>
+        {showRejectionReasons ? (
+          <div className="stack compact">
+            <p className="muted">What should we avoid?</p>
+            <div className="planner-chip-row">
+              {rejectionReasons.map((reason) => {
+                const isSelected = selectedRejectionReasons.includes(reason.id);
+                return (
+                  <button
+                    key={reason.id}
+                    type="button"
+                    className={`planner-chip ${isSelected ? 'planner-chip-selected' : ''}`}
+                    onClick={() => setSelectedRejectionReasons((current) => (
+                      current.includes(reason.id)
+                        ? current.filter((item) => item !== reason.id)
+                        : [...current, reason.id]
+                    ))}
+                  >
+                    {isSelected ? `✓ ${reason.label}` : reason.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="planner-chip planner-chip-action"
+                onClick={() => handleSuggestRecipe('not_for_me', selectedRejectionReasons)}
+              >
+                Suggest something else
+              </button>
+            </div>
+          </div>
+        ) : null}
+        <label>
+          Plan date
+          <input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} />
+        </label>
+        <label>
+          Servings
+          <input type="number" min={1} value={servings} onChange={(event) => setServings(Number(event.target.value || 1))} />
+        </label>
+        <div className="stack compact">
+          <p className="muted">Ingredients</p>
+          <ul className="explanation-list">
+            {recipe.ingredients.map((ingredient) => <li key={ingredient.id}>{ingredient.rawText}</li>)}
+          </ul>
+        </div>
+        {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
+      </article>
+
+      <Card title="Your Kitchen Rules">
         <label>
           Dietary defaults
           <div className="meal-actions">
@@ -277,70 +364,7 @@ export const MealPlannerScreen = () => {
         <p className="muted">Hard rules are always enforced in suggestions and shopping. Standing orders remain defaults unless your prompt or explicit feedback asks otherwise.</p>
       </Card>
 
-      <Card title={recipe.title}>
-        <p className="muted">{recipe.description}</p>
-        <p className="muted">{recipe.totalTimeMin} min • {recipe.servingsDefault} servings • {recipe.status} • v{recipe.version}</p>
-        <p className="muted">Source: {recipe.source?.label || 'Unknown source'}</p>
-        <div className="stack compact">
-          <p className="muted">Ingredients</p>
-          <ul className="explanation-list">
-            {recipe.ingredients.map((ingredient) => <li key={ingredient.id}>{ingredient.rawText}</li>)}
-          </ul>
-        </div>
-        <label>
-          Plan date
-          <input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} />
-        </label>
-        <label>
-          Servings
-          <input type="number" min={1} value={servings} onChange={(event) => setServings(Number(event.target.value || 1))} />
-        </label>
-        <div className="stack compact">
-          <p className="muted">Quick actions</p>
-          <div className="meal-actions">
-            <button type="button" onClick={handleUseTonight}>Use tonight</button>
-            <button type="button" onClick={handleAddToPlan}>Add to plan</button>
-            <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
-            <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
-            <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>Not for me</button>
-            <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
-            <button type="button" onClick={handleRecipeCard}>Print / share</button>
-            <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>
-          </div>
-        </div>
-        {showRejectionReasons ? (
-          <div className="stack compact">
-            <p className="muted">What should we avoid?</p>
-            <div className="meal-actions">
-              {rejectionReasons.map((reason) => {
-                const isSelected = selectedRejectionReasons.includes(reason.id);
-                return (
-                  <button
-                    key={reason.id}
-                    type="button"
-                    onClick={() => setSelectedRejectionReasons((current) => (
-                      current.includes(reason.id)
-                        ? current.filter((item) => item !== reason.id)
-                        : [...current, reason.id]
-                    ))}
-                  >
-                    {isSelected ? `✓ ${reason.label}` : reason.label}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => handleSuggestRecipe('not_for_me', selectedRejectionReasons)}
-              >
-                Suggest something else
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
-      </Card>
-
-      <Card title="Pantry + staples">
+      <Card title="Pantry Essentials">
         <p className="muted">Default staples are pre-loaded. Adjust status to influence shopping.</p>
         <div className="stack compact">
           {pantryItems.map((item) => (
@@ -357,7 +381,7 @@ export const MealPlannerScreen = () => {
         </div>
       </Card>
 
-      <Card title="Why items are on the list">
+      <Card title="Curator’s Note">
         {!lastShoppingExplanation.length ? (
           <p className="muted">Use “Refresh shopping” after adding a meal to update explainable shopping output.</p>
         ) : (
