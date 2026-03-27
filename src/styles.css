@@ -4,6 +4,9 @@
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   color: #2d332f;
   background: radial-gradient(circle at 18% 8%, #fffaf0 0%, #f6f1e6 42%, #ece6d9 100%);
+  --bottom-nav-height: 86px;
+  --bottom-nav-offset: 12px;
+  --bottom-nav-breathing-room: 28px;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +27,7 @@ h3,
   max-width: 520px;
   margin: 0 auto;
   min-height: 100vh;
-  padding: 0 0 124px;
+  padding: 0 0 calc(var(--bottom-nav-height) + var(--bottom-nav-offset) + env(safe-area-inset-bottom, 0px) + 26px);
   background: linear-gradient(180deg, rgba(255, 252, 246, 0.93) 0%, rgba(243, 236, 224, 0.96) 100%);
   box-shadow: 0 0 0 1px rgba(170, 153, 126, 0.14);
 }
@@ -38,7 +41,9 @@ h3,
   backdrop-filter: blur(10px);
 }
 
-.content { padding: 16px 24px 44px; }
+.content {
+  padding: 16px 24px calc(var(--bottom-nav-height) + var(--bottom-nav-offset) + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-breathing-room));
+}
 .screen { display: grid; gap: 30px; }
 .screen h1 { font-size: 2.05rem; margin: 6px 0; line-height: 1.03; font-weight: 450; }
 .muted { color: #666f68; margin-top: 0; line-height: 1.5; }
@@ -145,6 +150,7 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   padding: 12px 10px;
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 24px rgba(83, 74, 56, 0.09);
+  z-index: 30;
 }
 
 .meal-actions {
@@ -155,6 +161,11 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 
 .meal-planner-screen {
   gap: 22px;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-offset) + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-breathing-room));
+}
+
+.meal-planner-screen > :last-child {
+  margin-bottom: var(--bottom-nav-breathing-room);
 }
 
 .planner-header {
@@ -666,6 +677,15 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 .privacy-screen {
   display: grid;
   gap: 26px;
+}
+
+.onboarding-progress {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #61685f;
+  font-weight: 600;
 }
 
 .atmospheric-panel {

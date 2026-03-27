@@ -17,15 +17,38 @@ import { InsightSupportingDaysScreen } from './screens/InsightSupportingDaysScre
 import { ReflectionHistoryScreen } from './screens/ReflectionHistoryScreen';
 import { ReflectionDetailScreen } from './screens/ReflectionDetailScreen';
 import { AppStoreProvider } from './state/AppStoreContext';
+import { useStore } from './state/AppStoreContext';
 import './styles.css';
+
+const RequireOnboarding = ({ children }: { children: React.ReactNode }) => {
+  const { state } = useStore();
+  if (!state.onboarding.hasCompleted) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return <>{children}</>;
+};
+
+const OnboardingEntry = () => {
+  const { state } = useStore();
+  if (state.onboarding.hasCompleted) {
+    return <Navigate to="/today" replace />;
+  }
+  return <OnboardingScreen />;
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppStoreProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/onboarding" element={<OnboardingScreen />} />
-          <Route element={<Layout />}>
+          <Route path="/onboarding" element={<OnboardingEntry />} />
+          <Route
+            element={(
+              <RequireOnboarding>
+                <Layout />
+              </RequireOnboarding>
+            )}
+          >
             <Route path="/today" element={<TodayScreen />} />
             <Route path="/growth" element={<GrowthScreen />} />
             <Route path="/meals" element={<MealLogScreen />} />
@@ -41,6 +64,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/insights/:insightId/days" element={<InsightSupportingDaysScreen />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Route>
+          <Route path="*" element={<Navigate to="/onboarding" replace />} />
         </Routes>
       </BrowserRouter>
     </AppStoreProvider>
