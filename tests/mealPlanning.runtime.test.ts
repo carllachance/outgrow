@@ -336,6 +336,25 @@ test('session suggestions avoid short-loop repeats and repeated patterns', () =>
   assert(new Set(patternKeys).size >= 6, 'repeated suggest-another turns should broaden method/format/protein patterns');
 });
 
+test('suggest-another expands session coverage across families, not just exact signatures', () => {
+  let context = createRecipeSuggestionContext('quick dinner');
+  const proteinFamilies = new Set<string>();
+  const cuisineFamilies = new Set<string>();
+  const formatFamilies = new Set<string>();
+
+  for (let index = 0; index < 9; index += 1) {
+    const result = suggestRecipeFromPromptWithContext({ prompt: 'quick dinner', context, nowIso });
+    context = result.context;
+    proteinFamilies.add(context.sessionCoverage.proteinsShown[0] ?? 'unknown');
+    cuisineFamilies.add(context.sessionCoverage.cuisinesShown[0] ?? 'unknown');
+    formatFamilies.add(context.sessionCoverage.formatsShown[0] ?? 'unknown');
+  }
+
+  assert(proteinFamilies.size >= 3, 'session should explore multiple protein families');
+  assert(cuisineFamilies.size >= 3, 'session should explore multiple cuisine families');
+  assert(formatFamilies.size >= 3, 'session should explore multiple meal formats');
+});
+
 test('session novelty memory survives prompt changes', () => {
   let context = createRecipeSuggestionContext('quick dinner');
   const first = suggestRecipeFromPromptWithContext({ prompt: 'quick dinner', context, nowIso });
