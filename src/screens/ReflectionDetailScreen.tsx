@@ -34,13 +34,13 @@ export const ReflectionDetailScreen = () => {
           <Card title="What worked?">
             <p>{reflection.worked || 'No answer saved.'}</p>
           </Card>
-          <Card title="What didn&apos;t hold up?">
+          <Card title="What got in the way?">
             <p>{reflection.didntHold || 'No answer saved.'}</p>
           </Card>
-          <Card title="What would you change?">
+          <Card title="What should change?">
             <p>{reflection.change || 'No answer saved.'}</p>
           </Card>
-          <Card title="How should next week adapt?">
+          <Card title="How can next week be easier?">
             <p>{reflection.adapt || 'No answer saved.'}</p>
           </Card>
         </>

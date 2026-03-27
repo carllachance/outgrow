@@ -51,7 +51,7 @@ export const MealLogScreen = () => {
         : undefined
     }));
 
-    setStoreMessage(message || 'Saved. You can edit details later anytime.');
+    setStoreMessage(message || 'Saved. You can edit details anytime.');
     if (!message) {
       setRawText('');
       setTimeModeOverride('');
@@ -66,12 +66,12 @@ export const MealLogScreen = () => {
   return (
     <div className="screen">
       <h1>Meal log</h1>
-      <p className="muted">Log meals or snacks now or later. Approximate timing is welcome.</p>
+      <p className="muted">Log meals or snacks now or later.</p>
       <Card title="Add meal or snack">
         {trackingEnabled ? (
           <form onSubmit={submit} className="stack compact">
             <label>
-              What did you have? You can be approximate.
+              What did you have?
               <textarea
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
@@ -85,7 +85,7 @@ export const MealLogScreen = () => {
 
             {rawText.trim() ? (
               <div>
-                <p className="muted">Looks like</p>
+                <p className="muted">Preview</p>
                 <p>
                   {(mealKindOverride || interpreted.mealKind || 'unknown').replace('_', ' ')}
                   {' · '}
@@ -126,7 +126,7 @@ export const MealLogScreen = () => {
                   </select>
                 </label>
                 <label>
-                  Understood as
+                  Summary
                   <input
                     value={summaryOverride}
                     onChange={(e) => setSummaryOverride(e.target.value)}
@@ -140,7 +140,7 @@ export const MealLogScreen = () => {
             {storeMessage ? <p>{storeMessage}</p> : null}
           </form>
         ) : (
-          <p>Meal logging is paused while safety mode is active. Calm support stays available.</p>
+          <p>Meal logging is paused while safety mode is active.</p>
         )}
       </Card>
 

@@ -140,7 +140,7 @@ export const MealPlannerScreen = () => {
   const supportAwareQuickPrompts = supportStyle === 'simple'
     ? quickPrompts.slice(0, 2)
     : supportStyle === 'teach'
-      ? [...quickPrompts, 'Teach me one repeatable dinner template I can reuse all week']
+      ? [...quickPrompts, 'Give me one repeatable dinner template for this week']
       : quickPrompts;
 
   useEffect(() => {
@@ -185,7 +185,7 @@ export const MealPlannerScreen = () => {
 
   const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral', reasons: RecipeFeedbackReason[] = []) => {
     if (!prompt.trim()) {
-      setActionMessage('Share what you need tonight so we can draft a recipe.');
+      setActionMessage('Tell me what you want tonight.');
       return;
     }
     const recommendationPrompt = buildRecommendationPrompt(prompt, state.onboarding);
@@ -209,23 +209,23 @@ export const MealPlannerScreen = () => {
     setSelectedRejectionReasons([]);
 
     if (feedback === 'not_for_me') {
-      const toneLine = supportStyle === 'simple' ? 'I kept this predictable.' : 'I kept one nearby stretch only.';
-      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
+      const toneLine = supportStyle === 'simple' ? 'Kept simple.' : 'One small stretch only.';
+      setActionMessage(`Got it. Here’s a new draft: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
       return;
     }
 
     if (feedback === 'more_like_this') {
-      const toneLine = supportStyle === 'teach' ? 'I kept repeatable structure in view.' : 'I kept it close to what already works.';
-      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
+      const toneLine = supportStyle === 'teach' ? 'Kept repeatable structure.' : 'Kept close to what already works.';
+      setActionMessage(`Great. Here’s one closer to what you liked: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
       return;
     }
 
-    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} ${suggestionExplanation} Anchor in view: ${anchorLine}`);
+    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} ${suggestionExplanation} Goal: ${anchorLine}`);
   };
 
   const handleKeepRecipe = () => {
     if (recipe.status === 'saved') {
-      setActionMessage(`Already in recipes as v${recipe.version}.`);
+      setActionMessage(`Already saved as v${recipe.version}.`);
       return;
     }
 
@@ -235,7 +235,7 @@ export const MealPlannerScreen = () => {
       patch: { notes: [{ id: 'note-1', kind: 'system', text: 'Kept from planner screen.' }], status: 'saved' }
     });
     setRecipe(next);
-    setActionMessage(`Recipe kept in your library as v${next.version}.`);
+    setActionMessage(`Saved to your recipes as v${next.version}.`);
   };
 
   const handleSavedStateChip = () => {
@@ -246,7 +246,7 @@ export const MealPlannerScreen = () => {
         patch: { status: 'draft' }
       });
       setRecipe(next);
-      setActionMessage(`Moved to draft: ${next.title}.`);
+      setActionMessage(`Moved to draft: ${next.title}`);
       return;
     }
 
@@ -315,7 +315,7 @@ export const MealPlannerScreen = () => {
     setPlanDate(todayDate);
     setPlannedRecipeIds((current) => (current.includes(recipe.id) ? current : [...current, recipe.id]));
     setPlannedRecipeDateById((current) => ({ ...current, [recipe.id]: todayDate }));
-    setActionMessage(`Tonight is set: ${tonightMeal.sourceSnapshot.recipeTitle} added for ${todayDate}.`);
+    setActionMessage(`Tonight is set: ${tonightMeal.sourceSnapshot.recipeTitle} for ${todayDate}.`);
   };
 
   const handleAssignShortlistedMeal = (candidate: WeeklyShortlistCandidate) => {
@@ -383,7 +383,7 @@ export const MealPlannerScreen = () => {
   const plannedDateForRecipe = plannedRecipeDateById[recipe.id];
   const handleOpenPlannedContext = () => {
     if (!isCurrentRecipePlanned) {
-      setActionMessage('Not planned yet. Use tonight or assign from shortlist to add it to your plan.');
+      setActionMessage('Not planned yet. Use tonight or assign a day.');
       return;
     }
     if (plannedDateForRecipe) {
@@ -391,19 +391,19 @@ export const MealPlannerScreen = () => {
     }
     setActionMessage(plannedDateForRecipe
       ? `Planned on ${plannedDateForRecipe}. Day is selected below.`
-      : 'This recipe is in your plan. Use the date picker below to adjust context.');
+      : 'This recipe is in your plan. Use the date picker below to update it.');
   };
-  const shortRationale = (suggestionContext.lastSteeringSignals?.[0] || recipe.description || 'Balanced for tonight.')
+  const shortRationale = (suggestionContext.lastSteeringSignals?.[0] || recipe.description || 'A balanced option for tonight.')
     .replace(/\.$/, '');
   const summaryBadges = [
-    recipe.status === 'saved' ? 'Saved' : 'AI draft',
+    recipe.status === 'saved' ? 'Saved' : 'Draft',
     isCurrentRecipePlanned
       ? `Planned ${plannedDateForRecipe || ''}`.trim()
       : isCurrentRecipeShortlisted
         ? 'Shortlisted'
         : 'Not planned'
   ];
-  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Time flexible'} · ${servings} servings · ${hasRecipeImage ? 'Photo ready' : 'No photo yet'}`;
+  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Flexible time'} · ${servings} servings · ${hasRecipeImage ? 'Photo' : 'No photo'}`;
 
   return (
     <section className="screen meal-planner-screen">
@@ -419,7 +419,7 @@ export const MealPlannerScreen = () => {
         <h2 className="planner-title">What do you need tonight?</h2>
         <p className="planner-subtitle">
           {supportStyle === 'teach'
-            ? 'Let&apos;s find something nourishing and repeatable.'
+            ? 'Let&apos;s find something nourishing you can repeat.'
             : supportStyle === 'simple'
               ? 'Let&apos;s keep this low-effort and steady.'
               : 'Let&apos;s find something nourishing.'}
@@ -493,12 +493,12 @@ export const MealPlannerScreen = () => {
             <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>{showRejectionReasons ? 'Hide not-for-me reasons' : 'Not for me'}</button>
           )}
           <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
-          <button type="button" onClick={handleRecipeCard}>Print / share</button>
+          <button type="button" onClick={handleRecipeCard}>Print or share</button>
           <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>
         </div>
         {showRejectionReasons ? (
           <div className="stack compact">
-            <p className="muted">What should we avoid?</p>
+            <p className="muted">What should we avoid next time?</p>
             <div className="planner-chip-row">
               {rejectionReasons.map((reason) => {
                 const isSelected = selectedRejectionReasons.includes(reason.id);
@@ -542,9 +542,9 @@ export const MealPlannerScreen = () => {
       </article>
 
       <Card title="This week’s shortlist">
-        <p className="muted">Collect 3–5 candidates first, then assign each one to a day when you’re ready.</p>
+        <p className="muted">Save a few options, then assign a day.</p>
         {!weeklyShortlist.length ? (
-          <p className="muted">No shortlisted recipes yet. Use “Shortlist” on any draft you want to consider this week.</p>
+          <p className="muted">No shortlisted recipes yet.</p>
         ) : (
           <ul className="planner-shortlist-list">
             {weeklyShortlist.map((candidate) => (
@@ -572,7 +572,7 @@ export const MealPlannerScreen = () => {
         )}
       </Card>
 
-      <Card title="Your Kitchen Rules">
+      <Card title="Kitchen rules">
         <label>
           Dietary defaults
           <div className="meal-actions">
@@ -588,37 +588,37 @@ export const MealPlannerScreen = () => {
           </div>
         </label>
         <label>
-          Standing orders (comma separated)
+          Defaults (comma separated)
           <input
             type="text"
             value={foodRules.standingOrders.join(', ')}
             onChange={(event) => updateFoodRules({ standingOrders: event.target.value.split(',') })}
-            placeholder="ex: high protein, one-pan, pantry-first"
+            placeholder="e.g. high protein, one-pan, pantry-first"
           />
         </label>
         <label>
-          Ingredient exclusions (hard)
+          Ingredient exclusions
           <input
             type="text"
             value={foodRules.ingredientExclusions.join(', ')}
             onChange={(event) => updateFoodRules({ ingredientExclusions: event.target.value.split(',') })}
-            placeholder="ex: gluten, mushrooms"
+            placeholder="e.g. gluten, mushrooms"
           />
         </label>
         <label>
-          Allergies (hard)
+          Allergies
           <input
             type="text"
             value={foodRules.allergies.join(', ')}
             onChange={(event) => updateFoodRules({ allergies: event.target.value.split(',') })}
-            placeholder="ex: asparagus, shrimp"
+            placeholder="e.g. asparagus, shrimp"
           />
         </label>
-        <p className="muted">Hard rules are always enforced in suggestions and shopping. Standing orders remain defaults unless your prompt or explicit feedback asks otherwise.</p>
+        <p className="muted">Exclusions and allergies are always enforced. Defaults are used unless you ask otherwise.</p>
       </Card>
 
-      <Card title="Pantry Essentials">
-        <p className="muted">Default staples are pre-loaded. Adjust status to influence shopping.</p>
+      <Card title="Pantry essentials">
+        <p className="muted">Adjust pantry status to improve shopping suggestions.</p>
         <div className="stack compact">
           {pantryItems.map((item) => (
             <label key={item.id}>
@@ -634,9 +634,9 @@ export const MealPlannerScreen = () => {
         </div>
       </Card>
 
-      <Card title="Curator’s Note">
+      <Card title="Shopping notes">
         {!lastShoppingExplanation.length ? (
-          <p className="muted">Use “Refresh shopping” after assigning a shortlisted meal (or using tonight) to update explainable shopping output.</p>
+          <p className="muted">Use “Refresh shopping” after planning a meal.</p>
         ) : (
           <ul className="explanation-list">
             {lastShoppingExplanation.map((line) => <li key={line}>{line}</li>)}

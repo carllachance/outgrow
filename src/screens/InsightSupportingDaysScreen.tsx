@@ -16,7 +16,7 @@ export const InsightSupportingDaysScreen = () => {
       <div>
         <p className="panel-kicker">Supporting days</p>
         <h1>{insight?.title ?? 'Insight'}</h1>
-        <p className="muted">Each day shows why it was included in this pattern.</p>
+        <p className="muted">Each day includes a short reason.</p>
       </div>
 
       <section className="chapter">
@@ -25,7 +25,7 @@ export const InsightSupportingDaysScreen = () => {
           return (
             <Link key={link.id} to={`/days/${link.dayId}?source=insight&insightId=${insightId}`} className="day-row-link">
               <span className="day-row-date">{new Date(`${link.dayId}T12:00:00`).toLocaleDateString()}</span>
-              <span className="day-row-preview">{day?.preview ?? 'No written preview for this day.'}</span>
+              <span className="day-row-preview">{day?.preview ?? 'No writing saved for this day.'}</span>
               <span className="reason-badge">{link.explanation ?? 'Included because this day matched the pattern.'}</span>
               <span className="day-row-chevron" aria-hidden="true">›</span>
             </Link>

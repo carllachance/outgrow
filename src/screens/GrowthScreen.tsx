@@ -13,9 +13,9 @@ export const GrowthScreen = () => {
   const reliableReturns = state.returnMoments.length;
   const reflectionCadence = state.weeklyReflections.length;
   const independenceSignals = [
-    `Reliable defaults logged: ${recentMealPlans}`,
-    `Return moments (recovery over perfection): ${reliableReturns}`,
-    `Weekly adaptation reps: ${reflectionCadence}`
+    `Planned days logged: ${recentMealPlans}`,
+    `Return moments: ${reliableReturns}`,
+    `Weekly reflections: ${reflectionCadence}`
   ];
   const rankedInsights = [...insightLibrary]
     .map((insight) => ({
@@ -26,17 +26,17 @@ export const GrowthScreen = () => {
 
   return (
     <div className="screen">
-      <h1>The Long Horizon</h1>
-      <p className="muted">Consistency over intensity. Returning is the work.</p>
+      <h1>Long view</h1>
+      <p className="muted">Small steady steps add up.</p>
       <Card title="Where this is heading">
-        <p>{state.onboarding.longHorizon || 'Define your long-horizon statement in onboarding.'}</p>
+        <p>{state.onboarding.longHorizon || 'Add your long-view goal in onboarding.'}</p>
       </Card>
       <Card title="Rhythm and season">
         <p>The pace can change without progress disappearing. Hard weeks still count.</p>
         <Link className="button-link" to="/meals">Open meal log</Link>
       </Card>
       <Card title="Independence signals">
-        <p className="muted">Progress here is about needing less rescue, not just app activity.</p>
+        <p className="muted">Progress means this gets easier to do on your own.</p>
         {independenceSignals.map((signal) => <p key={signal}>{signal}</p>)}
       </Card>
       <Card title="Moments of return">
@@ -46,8 +46,7 @@ export const GrowthScreen = () => {
         ))}
       </Card>
       <Card title="Behavioral insights">
-        <p className="muted">Each insight stays inspectable through the days that support it.</p>
-        <p className="muted">Insight order is ranked against your anchor statement. {growthIntentSupportLine(state.onboarding)}</p>
+        <p className="muted">Sorted by your goal. {growthIntentSupportLine(state.onboarding)}</p>
         <div className="stack compact">
           {rankedInsights.map(({ insight, alignment }) => {
             const count = supportLinks.filter((link) => link.insightId === insight.id).length;

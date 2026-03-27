@@ -49,7 +49,7 @@ const toDayId = (isoDate: string) => isoDate.slice(0, 10);
 const hashDate = (dayId: string) => dayId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
 
 const summarizePreview = (parts: string[]) => {
-  const text = parts.find(Boolean) ?? 'No writing captured for this day yet.';
+  const text = parts.find(Boolean) ?? 'No writing saved for this day yet.';
   return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 };
 
@@ -66,8 +66,8 @@ const getSoftTimeLabel = (meal: MealLogEntry) => {
   if (meal.timeMode === 'exact' && meal.exactTime) {
     return new Date(meal.exactTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
-  if (meal.timeMode === 'unknown') return 'Time open';
-  return meal.softTimeLabel || 'Around meal time';
+  if (meal.timeMode === 'unknown') return 'Time flexible';
+  return meal.softTimeLabel || 'Around mealtime';
 };
 
 export const getRelativeDateLabel = (dayId: string) => {
@@ -190,8 +190,8 @@ const factorSetForDay = (day: DayContext): Set<InsightSupportFactor> => {
 
 const buildExplanation = (insightId: string) => {
   if (insightId === 'sleep-and-evening-rhythm') return 'Included because this day had shorter sleep and a later eating signal.';
-  if (insightId === 'daytime-structure-and-energy') return 'Part of this pattern because you logged an earlier lunch and your notes sounded steadier.';
-  if (insightId === 'activity-and-tone') return 'Included as a matching day because activity was above your usual range and note tone was more positive.';
+  if (insightId === 'daytime-structure-and-energy') return 'Included because you logged an earlier lunch and your notes sounded steadier.';
+  if (insightId === 'activity-and-tone') return 'Included because activity was above your usual range and note tone was more positive.';
   return 'Included because this day matched part of the pattern.';
 };
 

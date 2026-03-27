@@ -43,21 +43,21 @@ export const JournalScreen = () => {
   return (
     <div className="screen">
       <h1>Journal</h1>
-      <p className="muted">Freeform reflections for hard days, good days, and everything in between.</p>
+      <p className="muted">A place to think clearly.</p>
       {query.get('focus') === 'today-plan' ? (
         <Card title="Today's journal plan">
           {focusedPlan ? (
             <>
-              <p className="muted">Saved from Today.</p>
+            <p className="muted">Saved from Today.</p>
               <p>{focusedPlan.content.replace(focusedPlanPrefix, '').trim()}</p>
             </>
           ) : (
-            <p className="muted">No journal plan has been saved for this date yet. Use “Plan this in Journal” on Today first.</p>
+            <p className="muted">No plan saved for this date yet.</p>
           )}
         </Card>
       ) : null}
       <Card title="Freeform journaling">
-        <p className="muted">Try: Write what&apos;s on your mind, what brings you joy, or brag about yourself.</p>
+        <p className="muted">Write what&apos;s on your mind.</p>
         <form onSubmit={submitEntry}>
           <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="Write what's on your mind." />
           <button type="submit">Save reflection</button>
@@ -68,12 +68,12 @@ export const JournalScreen = () => {
         <div className="inline-actions" style={{ marginBottom: '10px' }}>
           <Link className="button-link" to="/journal/reflections">View reflection history</Link>
         </div>
-        <p className="muted">Reflect against your anchor statement: {anchor}</p>
+        <p className="muted">Your goal: {anchor}</p>
         <form onSubmit={submitReflection} className="stack compact">
-          <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked in support of your anchor?" />
-          <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What got in the way of your anchor?" />
-          <textarea value={change} onChange={(e) => setChange(e.target.value)} placeholder="What would you change to stay aligned?" />
-          <textarea value={adapt} onChange={(e) => setAdapt(e.target.value)} placeholder="How should next week adapt to better support your anchor?" />
+          <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked this week?" />
+          <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What got in the way?" />
+          <textarea value={change} onChange={(e) => setChange(e.target.value)} placeholder="What should change next week?" />
+          <textarea value={adapt} onChange={(e) => setAdapt(e.target.value)} placeholder="How can you make next week easier?" />
           <button type="submit">Save weekly reflection</button>
         </form>
       </Card>
