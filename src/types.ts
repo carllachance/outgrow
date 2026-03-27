@@ -12,6 +12,8 @@ export interface OnboardingState {
   optionalNarrative: string;
   expectedTimeline: string;
   supportTier: SupportTier;
+  activeStep: 1 | 2 | 3 | 4;
+  hasCompleted: boolean;
 }
 
 export interface FoodRulesState {

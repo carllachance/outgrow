@@ -70,8 +70,16 @@ export const hydrateAppState = (raw: string | null): AppState => {
 
   try {
     const parsed = { ...defaultState, ...JSON.parse(raw) } as AppState;
+    const onboardingStep = parsed.onboarding?.activeStep;
+    const sanitizedOnboardingStep: 1 | 2 | 3 | 4 = onboardingStep === 2 || onboardingStep === 3 || onboardingStep === 4 ? onboardingStep : 1;
     return {
       ...parsed,
+      onboarding: {
+        ...defaultState.onboarding,
+        ...parsed.onboarding,
+        activeStep: sanitizedOnboardingStep,
+        hasCompleted: Boolean(parsed.onboarding?.hasCompleted)
+      },
       todaySuccessByDate:
         parsed.todaySuccessByDate && typeof parsed.todaySuccessByDate === 'object'
           ? parsed.todaySuccessByDate

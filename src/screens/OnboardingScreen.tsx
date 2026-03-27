@@ -18,17 +18,28 @@ const supportStyleOptions = [
 export const OnboardingScreen = () => {
   const { state, updateOnboarding, updateProfile } = useStore();
   const navigate = useNavigate();
+  const activeStep = state.onboarding.activeStep;
+  const totalSteps = 4;
+
+  const goToStep = (step: 1 | 2 | 3 | 4) => {
+    updateOnboarding({ activeStep: step });
+  };
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
+    updateOnboarding({ hasCompleted: true, activeStep: 4 });
     navigate('/today');
   };
 
   return (
     <div className="screen onboarding-screen">
       <WelcomeHero />
+      <div className="onboarding-progress" aria-live="polite">
+        Step {activeStep} of {totalSteps}
+      </div>
       <form onSubmit={onSubmit} className="stack">
-        <section className="chapter" aria-labelledby="onboarding-step-one">
+        {activeStep === 1 ? (
+          <section className="chapter" aria-labelledby="onboarding-step-one">
           <p className="panel-kicker">Chapter one</p>
           <h2 id="onboarding-step-one">I know I&apos;ve Outgrown this app when…</h2>
           <p>This is your anchor statement. We&apos;ll reuse it across planning, coaching, and reflection.</p>
@@ -42,9 +53,18 @@ export const OnboardingScreen = () => {
             onChange={(e) => updateProfile(e.target.value, state.profile.pronouns ?? '')}
             placeholder="What should we call you?"
           />
+          <button
+            type="button"
+            className="primary-cta"
+            onClick={() => goToStep(2)}
+          >
+            Continue
+          </button>
         </section>
+        ) : null}
 
-        <section className="chapter" aria-labelledby="onboarding-friction-step">
+        {activeStep === 2 ? (
+          <section className="chapter" aria-labelledby="onboarding-friction-step">
           <p className="panel-kicker">Chapter two</p>
           <h2 id="onboarding-friction-step">What&apos;s the biggest friction right now?</h2>
           <p>Name where things keep breaking down so support can meet your real life.</p>
@@ -53,9 +73,15 @@ export const OnboardingScreen = () => {
             onChange={(e) => updateOnboarding({ optionalNarrative: e.target.value })}
             placeholder="I skip meals when work gets intense, then over-correct at night."
           />
+          <div className="inline-actions">
+            <button type="button" onClick={() => goToStep(1)}>Back</button>
+            <button type="button" className="primary-cta" onClick={() => goToStep(3)}>Continue</button>
+          </div>
         </section>
+        ) : null}
 
-        <section className="chapter" aria-labelledby="onboarding-support-style-step">
+        {activeStep === 3 ? (
+          <section className="chapter" aria-labelledby="onboarding-support-style-step">
           <p className="panel-kicker">Chapter three</p>
           <h2 id="onboarding-support-style-step">What kind of support feels best?</h2>
           <p>Pick the tone you want from Outgrow right now.</p>
@@ -71,9 +97,15 @@ export const OnboardingScreen = () => {
               </button>
             ))}
           </div>
+          <div className="inline-actions">
+            <button type="button" onClick={() => goToStep(2)}>Back</button>
+            <button type="button" className="primary-cta" onClick={() => goToStep(4)}>Continue</button>
+          </div>
         </section>
+        ) : null}
 
-        <section className="chapter" aria-labelledby="onboarding-focus-step">
+        {activeStep === 4 ? (
+          <section className="chapter" aria-labelledby="onboarding-focus-step">
           <p className="panel-kicker">Chapter four</p>
           <h2 id="onboarding-focus-step">What&apos;s the practical starting point this week?</h2>
           <p>Choose one concrete place to begin. We&apos;ll ladder this back to your anchor statement.</p>
@@ -94,10 +126,12 @@ export const OnboardingScreen = () => {
             onChange={(e) => updateOnboarding({ weeklyLens: e.target.value })}
             placeholder="This week, success looks like planning two low-effort dinners before my busiest days."
           />
+          <button type="button" onClick={() => goToStep(3)}>Back</button>
           <button className="primary-cta" type="submit">
             Enter Today
           </button>
         </section>
+        ) : null}
       </form>
     </div>
   );

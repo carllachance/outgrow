@@ -11,7 +11,9 @@ export const defaultState: AppState = {
     currentFocus: '',
     optionalNarrative: '',
     expectedTimeline: '',
-    supportTier: 'Active'
+    supportTier: 'Active',
+    activeStep: 1,
+    hasCompleted: false
   },
   todaySuccessByDate: {},
   journalEntries: [],
