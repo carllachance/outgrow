@@ -123,6 +123,7 @@ export const MealPlannerScreen = () => {
   const [weeklyShortlist, setWeeklyShortlist] = useState<WeeklyShortlistCandidate[]>([]);
   const [shortlistAssignmentById, setShortlistAssignmentById] = useState<Record<string, string>>({});
   const [plannedRecipeIds, setPlannedRecipeIds] = useState<string[]>([]);
+  const [plannedRecipeDateById, setPlannedRecipeDateById] = useState<Record<string, string>>({});
   const [actionMessage, setActionMessage] = useState('');
   const [showRejectionReasons, setShowRejectionReasons] = useState(true);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
@@ -237,6 +238,27 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Recipe kept in your library as v${next.version}.`);
   };
 
+  const handleSavedStateChip = () => {
+    if (recipe.status === 'saved') {
+      const next = service.updateRecipe({
+        recipeId: recipe.id,
+        baseVersion: recipe.version,
+        patch: { status: 'draft' }
+      });
+      setRecipe(next);
+      setActionMessage(`Moved to draft: ${next.title}.`);
+      return;
+    }
+
+    const next = service.updateRecipe({
+      recipeId: recipe.id,
+      baseVersion: recipe.version,
+      patch: { status: 'saved' }
+    });
+    setRecipe(next);
+    setActionMessage(`Saved to your recipes: ${next.title}.`);
+  };
+
   const handleShortlistRecipe = () => {
     const existing = weeklyShortlist.find((candidate) => candidate.recipeId === recipe.id);
     if (existing) {
@@ -259,6 +281,25 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Shortlisted for this week: ${recipe.title}. Assign a day when you’re ready.`);
   };
 
+  const handleShortlistStateChip = () => {
+    const recipeCandidates = weeklyShortlist.filter((candidate) => candidate.recipeId === recipe.id);
+    if (recipeCandidates.length) {
+      const candidateIds = new Set(recipeCandidates.map((candidate) => candidate.id));
+      setWeeklyShortlist((current) => current.filter((candidate) => !candidateIds.has(candidate.id)));
+      setShortlistAssignmentById((current) => {
+        const next = { ...current };
+        recipeCandidates.forEach((candidate) => {
+          delete next[candidate.id];
+        });
+        return next;
+      });
+      setActionMessage(`Removed ${recipe.title} from this week’s shortlist.`);
+      return;
+    }
+
+    handleShortlistRecipe();
+  };
+
   const handleUseTonight = () => {
     const tonightMeal = service.addToPlan({
       id: `meal-${crypto.randomUUID()}`,
@@ -273,6 +314,7 @@ export const MealPlannerScreen = () => {
 
     setPlanDate(todayDate);
     setPlannedRecipeIds((current) => (current.includes(recipe.id) ? current : [...current, recipe.id]));
+    setPlannedRecipeDateById((current) => ({ ...current, [recipe.id]: todayDate }));
     setActionMessage(`Tonight is set: ${tonightMeal.sourceSnapshot.recipeTitle} added for ${todayDate}.`);
   };
 
@@ -297,6 +339,7 @@ export const MealPlannerScreen = () => {
     });
     setPlanDate(plan.date);
     setPlannedRecipeIds((current) => (current.includes(candidate.recipeId) ? current : [...current, candidate.recipeId]));
+    setPlannedRecipeDateById((current) => ({ ...current, [candidate.recipeId]: plan.date }));
     setActionMessage(`Planned from shortlist: ${candidate.recipeTitle} on ${plan.date}.`);
   };
 
@@ -337,12 +380,30 @@ export const MealPlannerScreen = () => {
   }, []);
   const isCurrentRecipeShortlisted = weeklyShortlist.some((candidate) => candidate.recipeId === recipe.id);
   const isCurrentRecipePlanned = plannedRecipeIds.includes(recipe.id);
-  const stateBadges = [
-    { label: 'generated draft', active: recipe.status === 'draft' },
-    { label: 'shortlisted weekly candidate', active: isCurrentRecipeShortlisted },
-    { label: 'planned/scheduled meal', active: isCurrentRecipePlanned },
-    { label: 'saved recipe', active: recipe.status === 'saved' }
+  const plannedDateForRecipe = plannedRecipeDateById[recipe.id];
+  const handleOpenPlannedContext = () => {
+    if (!isCurrentRecipePlanned) {
+      setActionMessage('Not planned yet. Use tonight or assign from shortlist to add it to your plan.');
+      return;
+    }
+    if (plannedDateForRecipe) {
+      setPlanDate(plannedDateForRecipe);
+    }
+    setActionMessage(plannedDateForRecipe
+      ? `Planned on ${plannedDateForRecipe}. Day is selected below.`
+      : 'This recipe is in your plan. Use the date picker below to adjust context.');
+  };
+  const shortRationale = (suggestionContext.lastSteeringSignals?.[0] || recipe.description || 'Balanced for tonight.')
+    .replace(/\.$/, '');
+  const summaryBadges = [
+    recipe.status === 'saved' ? 'Saved' : 'AI draft',
+    isCurrentRecipePlanned
+      ? `Planned ${plannedDateForRecipe || ''}`.trim()
+      : isCurrentRecipeShortlisted
+        ? 'Shortlisted'
+        : 'Not planned'
   ];
+  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Time flexible'} · ${servings} servings · ${hasRecipeImage ? 'Photo ready' : 'No photo yet'}`;
 
   return (
     <section className="screen meal-planner-screen">
@@ -384,24 +445,35 @@ export const MealPlannerScreen = () => {
       </section>
 
       <article className={`planner-featured-card ${hasRecipeImage ? 'planner-featured-card-with-image' : 'planner-featured-card-no-image'}`}>
-        <div className={`planner-recipe-media ${hasRecipeImage ? 'planner-recipe-media-with-image' : 'planner-recipe-media-no-image'}`}>
-          {hasRecipeImage ? <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} /> : null}
-          <div className="planner-image-meta">
-            {recipe.totalTimeMin ? <span>{recipe.totalTimeMin} min</span> : null}
-            <span>{servings} servings</span>
-            {!hasRecipeImage ? <span className="planner-no-image-pill">No photo yet</span> : null}
+        <div className="planner-recipe-sticky-header">
+          <div className={`planner-recipe-media planner-recipe-media-compact ${hasRecipeImage ? 'planner-recipe-media-with-image' : 'planner-recipe-media-no-image'}`}>
+            {hasRecipeImage ? <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} /> : null}
+          </div>
+          <div className="planner-recipe-header-copy">
+            <h3 className="planner-recipe-title serif">{recipe.title}</h3>
+            <p className="planner-rationale-line">{shortRationale}</p>
+            <p className="planner-recipe-meta-inline">{compactMeta}</p>
+            <div className="planner-info-badges planner-info-badges-compact" aria-label="Recipe status summary">
+              {summaryBadges.slice(0, 2).map((badge) => (
+                <span key={badge} className="planner-info-badge planner-info-badge-active">{badge}</span>
+              ))}
+            </div>
+          </div>
+          <div className="planner-primary-actions planner-primary-actions-sticky">
+            <button type="button" onClick={handleUseTonight} className="planner-cta-main">Use tonight</button>
+            <button type="button" onClick={handleShortlistStateChip} className="planner-cta-secondary">
+              {isCurrentRecipeShortlisted ? 'Unshortlist' : 'Shortlist'}
+            </button>
+            <button type="button" onClick={handleSavedStateChip}>
+              {recipe.status === 'saved' ? 'Move to draft' : 'Save recipe'}
+            </button>
+            <button type="button" onClick={handleOpenPlannedContext}>
+              {isCurrentRecipePlanned ? 'Open planned day' : 'Plan status'}
+            </button>
           </div>
         </div>
-        <h3 className="planner-recipe-title serif">{recipe.title}</h3>
-        <p className="planner-recipe-description">{recipe.description}</p>
-        <p className="planner-source-note">Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
-        <div className="planner-state-badges" aria-label="Recipe planning states">
-          {stateBadges.map((badge) => (
-            <span key={badge.label} className={`planner-state-badge ${badge.active ? 'planner-state-badge-active' : ''}`}>
-              {badge.active ? `✓ ${badge.label}` : badge.label}
-            </span>
-          ))}
-        </div>
+        <div className="planner-recipe-scroll-content">
+          <p className="planner-recipe-description">{recipe.description}</p>
         <div className="planner-ingredients-card">
           <p className="planner-ingredients-label">Ingredients on hand</p>
           <div className="planner-inline-chips">
@@ -413,12 +485,7 @@ export const MealPlannerScreen = () => {
             ))}
           </div>
         </div>
-        <div className="planner-primary-actions">
-          <button type="button" onClick={handleUseTonight} className="planner-cta-main">Use tonight</button>
-          <button type="button" onClick={handleShortlistRecipe} className="planner-cta-secondary">
-            {isCurrentRecipeShortlisted ? 'Shortlisted' : 'Shortlist'}
-          </button>
-        </div>
+        <p className="planner-source-note">Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
           <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
@@ -469,6 +536,7 @@ export const MealPlannerScreen = () => {
           <ul className="explanation-list">
             {recipe.ingredients.map((ingredient) => <li key={ingredient.id}>{ingredient.rawText}</li>)}
           </ul>
+        </div>
         </div>
         {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
       </article>
