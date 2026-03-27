@@ -167,24 +167,26 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 .planner-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .planner-brand-mark {
-  width: 45px;
-  height: 45px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
-  padding: 4px;
-  background: #1f5446;
-  box-shadow: 0 4px 12px rgba(47, 79, 64, 0.18);
+  padding: 3px;
+  background: rgba(31, 84, 70, 0.82);
+  box-shadow: 0 2px 8px rgba(47, 79, 64, 0.14);
 }
 
-.planner-brand-name {
+.planner-section-label {
   margin: 0;
-  color: #365d48;
-  font-size: 2.18rem;
-  line-height: 1;
-  font-weight: 520;
+  color: #5f6d63;
+  font-size: 0.82rem;
+  line-height: 1.1;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .planner-settings {

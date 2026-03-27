@@ -205,8 +205,8 @@ export const MealPlannerScreen = () => {
     <section className="screen meal-planner-screen">
       <header className="planner-header">
         <div className="planner-brand">
-          <img src="/assets/logo/outgrow-mark.svg" alt="Harvest style mark" className="planner-brand-mark" />
-          <h1 className="planner-brand-name">Harvest</h1>
+          <img src="/assets/logo/outgrow-mark.svg" alt="Meals section mark" className="planner-brand-mark" />
+          <p className="planner-section-label">Meals</p>
         </div>
         <button type="button" className="planner-settings" aria-label="Planner settings">⚙</button>
       </header>
@@ -218,11 +218,7 @@ export const MealPlannerScreen = () => {
           <textarea
             rows={2}
             value={prompt}
-            onChange={(event) => {
-              const nextPrompt = event.target.value;
-              setPrompt(nextPrompt);
-              setSuggestionContext(createRecipeSuggestionContext(nextPrompt));
-            }}
+            onChange={(event) => setPrompt(event.target.value)}
             className="planner-prompt-input"
             placeholder="I have salmon and spinach..."
             aria-label="Tell the chef what you need"
@@ -233,7 +229,7 @@ export const MealPlannerScreen = () => {
         </div>
         <div className="planner-chip-row" aria-label="Prompt suggestions">
           {quickPrompts.map((example) => (
-            <button key={example} type="button" className="planner-chip" onClick={() => { setPrompt(example); setSuggestionContext(createRecipeSuggestionContext(example)); }}>{example}</button>
+            <button key={example} type="button" className="planner-chip" onClick={() => { setPrompt(example); }}>{example}</button>
           ))}
         </div>
       </section>
