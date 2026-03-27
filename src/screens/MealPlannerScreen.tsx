@@ -16,6 +16,10 @@ const starterRecipe: Recipe = {
   id: 'recipe-weeknight-sheet-pan',
   title: 'Sheet Pan Chicken & Veg',
   description: 'Fast cleanup dinner for low-energy weeknights.',
+  image: {
+    url: 'https://images.unsplash.com/photo-1604909053196-1de3f9f6f72b?auto=format&fit=crop&w=1200&q=80',
+    alt: 'Roasted sheet pan chicken with vegetables'
+  },
   source: { type: 'manual', label: 'Outgrow test kitchen' },
   status: 'saved',
   version: 1,
@@ -201,6 +205,10 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Recipe card ready: ${card.title}${card.subtitle ? ` — ${card.subtitle}` : ''}.`);
   };
 
+  const imageUrl = recipe.image?.url?.trim();
+  const hasRecipeImage = Boolean(imageUrl);
+  const imageAlt = recipe.image?.alt?.trim() || `${recipe.title} photo`;
+
   return (
     <section className="screen meal-planner-screen">
       <header className="planner-header">
@@ -234,11 +242,13 @@ export const MealPlannerScreen = () => {
         </div>
       </section>
 
-      <article className="planner-featured-card">
-        <div className="planner-recipe-image" role="img" aria-label="Roasted sheet pan chicken">
+      <article className={`planner-featured-card ${hasRecipeImage ? 'planner-featured-card-with-image' : 'planner-featured-card-no-image'}`}>
+        <div className={`planner-recipe-media ${hasRecipeImage ? 'planner-recipe-media-with-image' : 'planner-recipe-media-no-image'}`}>
+          {hasRecipeImage ? <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} /> : null}
           <div className="planner-image-meta">
-            <span>{recipe.totalTimeMin} min</span>
+            {recipe.totalTimeMin ? <span>{recipe.totalTimeMin} min</span> : null}
             <span>{servings} servings</span>
+            {!hasRecipeImage ? <span className="planner-no-image-pill">No photo yet</span> : null}
           </div>
         </div>
         <h3 className="planner-recipe-title serif">{recipe.title}</h3>

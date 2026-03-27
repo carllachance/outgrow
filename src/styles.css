@@ -293,14 +293,29 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   gap: 14px;
 }
 
-.planner-recipe-image {
-  min-height: 270px;
+.planner-recipe-media {
   border-radius: 24px;
   overflow: hidden;
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0) 62%, rgba(255, 249, 239, 0.72) 88%, rgba(255, 248, 237, 1) 100%),
-    url('https://images.unsplash.com/photo-1604909053196-1de3f9f6f72b?auto=format&fit=crop&w=1200&q=80') center / cover;
+}
+
+.planner-recipe-media-with-image {
+  min-height: 270px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 50%, rgba(14, 25, 19, 0.45) 100%);
+}
+
+.planner-recipe-media-no-image {
+  min-height: 94px;
+  background: linear-gradient(135deg, rgba(199, 221, 191, 0.7), rgba(238, 228, 210, 0.92));
+  border: 1px solid rgba(159, 150, 131, 0.28);
+}
+
+.planner-recipe-image {
+  width: 100%;
+  height: 100%;
+  min-height: 270px;
+  display: block;
+  object-fit: cover;
 }
 
 .planner-image-meta {
@@ -319,6 +334,12 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   padding: 7px 12px;
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+.planner-no-image-pill {
+  margin-left: auto;
+  color: #67542f;
+  background: rgba(255, 246, 222, 0.95);
 }
 
 .planner-recipe-title {
