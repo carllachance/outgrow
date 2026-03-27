@@ -7,6 +7,9 @@ import { inferFrameworkFromGoal } from '../state/frameworkScaffolding';
 export const ProfileScreen = () => {
   const {
     state,
+    activeMode,
+    setProfileMode,
+    resetDemoProfile,
     updateOnboarding,
     setSafetyPause,
     requestSafetyReset,
@@ -35,6 +38,43 @@ export const ProfileScreen = () => {
   return (
     <div className="screen">
       <h1>Profile</h1>
+      <Card title="Profile mode">
+        <p>Switch between your real progress and a safe demo profile for testing.</p>
+        <div className="mode-segmented" role="group" aria-label="Profile mode">
+          <button
+            type="button"
+            className={activeMode === 'live' ? 'active' : ''}
+            onClick={() => setProfileMode('live')}
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            className={activeMode === 'demo' ? 'active' : ''}
+            onClick={() => setProfileMode('demo')}
+          >
+            Demo
+          </button>
+        </div>
+        {activeMode === 'demo' ? (
+          <>
+            <p><strong>Demo mode</strong> · Testing only. Your real progress is unchanged.</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Reset demo profile? This clears only demo data. Your live progress will not be affected.')) {
+                  resetDemoProfile();
+                }
+              }}
+            >
+              Reset demo profile
+            </button>
+            <p>Start demo onboarding from the beginning.</p>
+          </>
+        ) : (
+          <p>Live mode uses your real accumulated progress.</p>
+        )}
+      </Card>
       <Card title="What you're working toward">
         <p>Keep this in your own words. You can revise it anytime.</p>
         <textarea

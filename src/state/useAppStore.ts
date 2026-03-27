@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { defaultState } from './defaultState';
-import type { AppState, CommunityCategory, GoalRevisionSource, JournalEntry, KindWordEntry, MealLogEntry, Reflection } from '../types';
+import type { AppMode, AppState, CommunityCategory, GoalRevisionSource, JournalEntry, KindWordEntry, MealLogEntry, Reflection, RootAppState } from '../types';
 import { detectSafetyTier, evaluatePurposeIntegrity, sanitizeForShare, type SafetyTier } from '../data/purposeIntegrity';
 import { outgrowSafetyRuntimePolicy, resolveTierRule } from '../data/safetyRuntimePolicy';
 import { applyTier, appendSafetyEvent, isRestrictionActive } from './safetyState';
@@ -9,22 +9,63 @@ import { canUseMealLogging } from './mealLogSummary';
 import { buildInsightSupportLinks } from './insightProvenance';
 import { buildGoalRefinementSuggestions } from './goalRefinement';
 
-const STORAGE_KEY = 'outgrow-mvp-state-v1';
+const ACTIVE_MODE_STORAGE_KEY = 'outgrow.activeMode';
+const LIVE_PROFILE_STORAGE_KEY = 'outgrow.profile.live';
+const DEMO_PROFILE_STORAGE_KEY = 'outgrow.profile.demo';
+const LEGACY_STORAGE_KEY = 'outgrow-mvp-state-v1';
 const PROLONGED_SAFE_BASE_HOURS = outgrowSafetyRuntimePolicy.prolonged_safe_mode.base_duration_hours;
 
-const readStorage = (): AppState => {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  return hydrateAppState(raw);
+const isAppMode = (value: unknown): value is AppMode => value === 'live' || value === 'demo';
+
+const readStorage = (): RootAppState => {
+  const activeModeRaw = localStorage.getItem(ACTIVE_MODE_STORAGE_KEY);
+  const liveRaw = localStorage.getItem(LIVE_PROFILE_STORAGE_KEY);
+  const demoRaw = localStorage.getItem(DEMO_PROFILE_STORAGE_KEY);
+
+  if (!liveRaw && !demoRaw) {
+    const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      return {
+        activeMode: 'live',
+        profiles: {
+          live: hydrateAppState(legacyRaw),
+          demo: defaultState
+        }
+      };
+    }
+  }
+
+  return {
+    activeMode: isAppMode(activeModeRaw) ? activeModeRaw : 'live',
+    profiles: {
+      live: hydrateAppState(liveRaw),
+      demo: hydrateAppState(demoRaw)
+    }
+  };
 };
 
 const nowIso = () => new Date().toISOString();
 
 export const useAppStore = () => {
-  const [state, setState] = useState<AppState>(() => readStorage());
+  const [rootState, setRootState] = useState<RootAppState>(() => readStorage());
+  const state = rootState.profiles[rootState.activeMode];
+
+  const persistRoot = (next: RootAppState) => {
+    setRootState(next);
+    localStorage.setItem(ACTIVE_MODE_STORAGE_KEY, next.activeMode);
+    localStorage.setItem(LIVE_PROFILE_STORAGE_KEY, JSON.stringify(next.profiles.live));
+    localStorage.setItem(DEMO_PROFILE_STORAGE_KEY, JSON.stringify(next.profiles.demo));
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  };
 
   const persist = (next: AppState) => {
-    setState(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    persistRoot({
+      ...rootState,
+      profiles: {
+        ...rootState.profiles,
+        [rootState.activeMode]: next
+      }
+    });
   };
 
   const withProvenance = (next: AppState): AppState => ({
@@ -35,6 +76,23 @@ export const useAppStore = () => {
   return useMemo(
     () => ({
       state,
+      activeMode: rootState.activeMode,
+      setProfileMode: (mode: AppMode) => {
+        persistRoot({
+          ...rootState,
+          activeMode: mode
+        });
+      },
+      resetDemoProfile: () => {
+        persistRoot({
+          ...rootState,
+          activeMode: 'demo',
+          profiles: {
+            ...rootState.profiles,
+            demo: defaultState
+          }
+        });
+      },
       requestSafetyReset: () => {
         const at = nowIso();
         const nowMs = Date.now();
@@ -439,7 +497,13 @@ export const useAppStore = () => {
         });
       },
       clearAllData: () => {
-        persist(defaultState);
+        persistRoot({
+          activeMode: 'live',
+          profiles: {
+            live: defaultState,
+            demo: defaultState
+          }
+        });
       },
       addMealLog: (entry: Omit<MealLogEntry, 'id' | 'createdAt'>) => {
         if (!canUseMealLogging(state.safety)) {
@@ -474,6 +538,6 @@ export const useAppStore = () => {
         persist(withProvenance({ ...state, mealLogs: [] }));
       }
     }),
-    [state]
+    [rootState, state]
   );
 };

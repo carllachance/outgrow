@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { AppWordmark } from './brand/AppWordmark';
+import { useStore } from '../state/AppStoreContext';
 
 type TabItem = {
   to: string;
@@ -19,10 +20,12 @@ const tabs: TabItem[] = [
 ];
 
 export const Layout = () => {
+  const { activeMode } = useStore();
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${activeMode === 'demo' ? 'app-shell-demo' : ''}`}>
       <div className="app-shell-header">
         <AppWordmark compact />
+        {activeMode === 'demo' ? <span className="mode-badge">Demo mode</span> : null}
       </div>
       <main className="content">
         <Outlet />
