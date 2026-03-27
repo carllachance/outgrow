@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
+import { growthIntentAnchor } from '../state/growthIntent';
 
 const formatRange = (weekOf: string) => {
   const start = new Date(weekOf);
@@ -13,6 +14,7 @@ const formatRange = (weekOf: string) => {
 export const ReflectionDetailScreen = () => {
   const { reflectionId } = useParams();
   const { state } = useStore();
+  const anchor = growthIntentAnchor(state.onboarding);
   const decodedId = reflectionId ? decodeURIComponent(reflectionId) : '';
   const reflection = state.weeklyReflections.find((entry) => entry.weekOf === decodedId);
 
@@ -23,6 +25,9 @@ export const ReflectionDetailScreen = () => {
       {state.safety.flags.progress_visible && !reflection ? <p>Reflection not found.</p> : null}
       {state.safety.flags.progress_visible && reflection ? (
         <>
+          <Card title="Anchor statement">
+            <p>{anchor}</p>
+          </Card>
           <Card title="Week range">
             <p>{formatRange(reflection.weekOf)}</p>
           </Card>

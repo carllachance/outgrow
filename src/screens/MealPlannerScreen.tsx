@@ -8,6 +8,13 @@ import {
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe, RecipeFeedbackReason } from '../domain/meal-planning/types';
 import { useAppStore } from '../state/useAppStore';
+import {
+  buildGrowthIntentNarrative,
+  buildRecommendationPrompt,
+  explainGrowthAlignedSuggestion,
+  growthIntentAnchor,
+  supportTone
+} from '../state/growthIntent';
 
 const nowIso = '2026-03-26T12:00:00.000Z';
 const todayDate = '2026-03-26';
@@ -124,8 +131,16 @@ export const MealPlannerScreen = () => {
     const starterMemory = readStarterSuggestionMemory();
     return createRecipeSuggestionContext(prompt, starterMemory);
   });
-  const weeklySuccessText = state.onboarding.weeklyLens;
+  const weeklySuccessText = buildGrowthIntentNarrative(state.onboarding);
+  const anchorLine = growthIntentAnchor(state.onboarding);
+  const suggestionExplanation = explainGrowthAlignedSuggestion(state.onboarding);
+  const supportStyle = supportTone(state.onboarding);
   const foodRules = state.foodRules;
+  const supportAwareQuickPrompts = supportStyle === 'simple'
+    ? quickPrompts.slice(0, 2)
+    : supportStyle === 'teach'
+      ? [...quickPrompts, 'Teach me one repeatable dinner template I can reuse all week']
+      : quickPrompts;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -134,6 +149,15 @@ export const MealPlannerScreen = () => {
       recentInitialClusterSignatures: suggestionContext.recentInitialClusterSignatures
     }));
   }, [suggestionContext.recentInitialSuggestionSignatures, suggestionContext.recentInitialClusterSignatures]);
+
+  useEffect(() => {
+    if (supportStyle === 'simple') {
+      setShowRejectionReasons(false);
+      setSelectedRejectionReasons([]);
+      return;
+    }
+    setShowRejectionReasons(true);
+  }, [supportStyle]);
 
   const updatePantryStatus = (itemKey: string, status: PantryStatus) => {
     setPantryItems((current) => current.map((item) => (item.itemKey === itemKey ? { ...item, status, updatedAt: nowIso } : item)));
@@ -163,9 +187,10 @@ export const MealPlannerScreen = () => {
       setActionMessage('Share what you need tonight so we can draft a recipe.');
       return;
     }
+    const recommendationPrompt = buildRecommendationPrompt(prompt, state.onboarding);
 
     const suggested = suggestRecipeFromPromptWithContext({
-      prompt,
+      prompt: recommendationPrompt,
       context: suggestionContext,
       weeklySuccessText,
       foodRules,
@@ -183,16 +208,18 @@ export const MealPlannerScreen = () => {
     setSelectedRejectionReasons([]);
 
     if (feedback === 'not_for_me') {
-      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.${steeringNote}`);
+      const toneLine = supportStyle === 'simple' ? 'I kept this predictable.' : 'I kept one nearby stretch only.';
+      setActionMessage(`Got it. Steering away from that style. New draft: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
       return;
     }
 
     if (feedback === 'more_like_this') {
-      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.${steeringNote}`);
+      const toneLine = supportStyle === 'teach' ? 'I kept repeatable structure in view.' : 'I kept it close to what already works.';
+      setActionMessage(`Nice. Pulling closer to what you liked without duplicating it: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
       return;
     }
 
-    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} You can keep iterating, shortlist it, shop, or keep it in recipes.`);
+    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} ${suggestionExplanation} Anchor in view: ${anchorLine}`);
   };
 
   const handleKeepRecipe = () => {
@@ -329,7 +356,13 @@ export const MealPlannerScreen = () => {
 
       <section className="planner-intro">
         <h2 className="planner-title">What do you need tonight?</h2>
-        <p className="planner-subtitle">Let&apos;s find something nourishing.</p>
+        <p className="planner-subtitle">
+          {supportStyle === 'teach'
+            ? 'Let&apos;s find something nourishing and repeatable.'
+            : supportStyle === 'simple'
+              ? 'Let&apos;s keep this low-effort and steady.'
+              : 'Let&apos;s find something nourishing.'}
+        </p>
         <div className="planner-prompt-wrap">
           <textarea
             rows={2}
@@ -344,7 +377,7 @@ export const MealPlannerScreen = () => {
           </button>
         </div>
         <div className="planner-chip-row" aria-label="Prompt suggestions">
-          {quickPrompts.map((example) => (
+          {supportAwareQuickPrompts.map((example) => (
             <button key={example} type="button" className="planner-chip" onClick={() => { setPrompt(example); }}>{example}</button>
           ))}
         </div>
@@ -389,7 +422,9 @@ export const MealPlannerScreen = () => {
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
           <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
-          <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>{showRejectionReasons ? 'Hide not-for-me reasons' : 'Not for me'}</button>
+          {supportStyle === 'simple' ? null : (
+            <button type="button" onClick={() => setShowRejectionReasons((current) => !current)}>{showRejectionReasons ? 'Hide not-for-me reasons' : 'Not for me'}</button>
+          )}
           <button type="button" onClick={handleKeepRecipe}>Keep recipe</button>
           <button type="button" onClick={handleRecipeCard}>Print / share</button>
           <button type="button" onClick={handleRecalculateShopping}>Refresh shopping</button>

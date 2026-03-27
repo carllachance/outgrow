@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
+import { growthIntentAnchor, supportTone, todayMode } from '../state/growthIntent';
 
 type StretchGoal = {
   id: string;
@@ -16,7 +17,12 @@ type StretchGoal = {
 export const TodayScreen = () => {
   const { state, addJournalEntry, addReturnMoment, saveTodaySuccess } = useStore();
   const isSafetyMode = !state.safety.flags.optimization_enabled;
-  const hasSetDirection = Boolean(state.onboarding.weeklyLens || state.onboarding.currentFocus || state.journalEntries.length);
+  const hasSetDirection = Boolean(
+    state.onboarding.longHorizon
+    || state.onboarding.weeklyLens
+    || state.onboarding.currentFocus
+    || state.journalEntries.length
+  );
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
@@ -34,18 +40,35 @@ export const TodayScreen = () => {
   const recentJournalTheme = state.journalEntries[0]?.content;
   const hour = new Date().getHours();
   const timeOfDayHint = hour < 12 ? 'this morning' : hour < 18 ? 'this afternoon' : 'tonight';
+  const anchor = growthIntentAnchor(state.onboarding);
+  const tone = supportTone(state.onboarding);
+  const mode = todayMode({
+    needsImmediateHelp: !savedTodaySuccess && !todaySuccessDraft.trim(),
+    hasUsageHistory: state.returnMoments.length + state.journalEntries.length + state.weeklyReflections.length >= 4,
+    onboarding: state.onboarding
+  });
+  const modeLine = mode === 'utility_first'
+    ? 'Let’s keep this useful and immediate.'
+    : mode === 'reflection_aware'
+      ? 'Pattern note: steady meals seem to help your rhythm lately.'
+      : 'Quietly aligned with what you are trying to change.';
 
-  const suggestionChips = useMemo(
-    () =>
-      [
-        `Keep one promise to myself ${timeOfDayHint}.`,
-        recentWin ? `Build on yesterday: ${recentWin.slice(0, 46)}${recentWin.length > 46 ? '…' : ''}` : '',
-        recentJournalTheme
-          ? `Finish one doable step from: ${recentJournalTheme.slice(0, 40)}${recentJournalTheme.length > 40 ? '…' : ''}`
-          : '',
-      ].filter(Boolean),
-    [recentJournalTheme, recentWin, timeOfDayHint],
-  );
+  const suggestionChips = useMemo(() => {
+    const suggestions = [
+      tone === 'simple'
+        ? 'Keep dinner easy tonight.'
+        : `Anchor next step: ${anchor.slice(0, 70)}${anchor.length > 70 ? '…' : ''}`,
+      'A steady meal may help more than snacking tonight.',
+      `Keep one promise to myself ${timeOfDayHint}.`,
+      recentWin ? `Build on yesterday: ${recentWin.slice(0, 46)}${recentWin.length > 46 ? '…' : ''}` : '',
+      recentJournalTheme
+        ? `Finish one doable step from: ${recentJournalTheme.slice(0, 40)}${recentJournalTheme.length > 40 ? '…' : ''}`
+        : '',
+    ].filter(Boolean);
+    if (tone === 'simple') return suggestions.slice(0, 2);
+    if (tone === 'teach') return suggestions;
+    return suggestions.slice(0, 4);
+  }, [anchor, recentJournalTheme, recentWin, timeOfDayHint, tone]);
 
   const stretchGoals = useMemo<StretchGoal[]>(
     () => [
@@ -144,6 +167,7 @@ export const TodayScreen = () => {
       <section className="atmospheric-panel today-primary" aria-labelledby="today-success-title">
         <p className="panel-kicker">Today</p>
         <h2 id="today-success-title" className="panel-title">Today, success looks like…</h2>
+        <p className="panel-copy panel-copy-support">{modeLine}</p>
         {!isEditingTodaySuccess ? (
           <div className="today-intention-card">
             <button
