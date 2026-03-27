@@ -309,15 +309,15 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   border-radius: 24px;
   overflow: hidden;
   position: relative;
+  height: 180px;
+  isolation: isolate;
 }
 
 .planner-recipe-media-with-image {
-  min-height: 270px;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 50%, rgba(14, 25, 19, 0.45) 100%);
 }
 
 .planner-recipe-media-no-image {
-  min-height: 94px;
   background: linear-gradient(135deg, rgba(199, 221, 191, 0.7), rgba(238, 228, 210, 0.92));
   border: 1px solid rgba(159, 150, 131, 0.28);
 }
@@ -325,18 +325,19 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 .planner-recipe-image {
   width: 100%;
   height: 100%;
-  min-height: 270px;
   display: block;
   object-fit: cover;
 }
 
 .planner-image-fallback-copy {
-  min-height: 96px;
+  height: 100%;
   display: grid;
   place-items: center;
   color: #5b4a2d;
   font-size: 0.9rem;
   font-weight: 600;
+  text-align: center;
+  padding: 0 14px;
 }
 
 .planner-image-meta {
@@ -383,8 +384,7 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
 }
 
 .planner-recipe-media-compact {
-  min-height: 90px;
-  max-height: 120px;
+  height: 132px;
 }
 
 .planner-recipe-header-copy {

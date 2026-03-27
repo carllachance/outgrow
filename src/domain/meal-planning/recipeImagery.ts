@@ -10,6 +10,7 @@ export type RecipeHeroImageSource = 'source_photo' | 'ai_food_photo' | 'fallback
 
 export interface RecipeHeroImageSelection {
   source: RecipeHeroImageSource;
+  state: 'loading' | 'ready' | 'fallback';
   image?: RecipeImage;
   label?: string;
 }
@@ -68,23 +69,33 @@ export const buildIngredientIllustrationTile = (title: string, ingredients: stri
 
 export const selectRecipeHeroImage = (recipe: Recipe, hasImageError = false): RecipeHeroImageSelection => {
   const image = recipe.image;
-  if (!image || hasImageError) {
+  if (!image && !hasImageError) {
     const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
-    return { source: 'fallback_illustration', image: fallback, label: 'Image generating…' };
+    return { source: 'fallback_illustration', state: 'loading', image: fallback, label: 'Image on the way' };
+  }
+
+  if (hasImageError) {
+    const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
+    return { source: 'fallback_illustration', state: 'fallback', image: fallback, label: 'Image unavailable' };
+  }
+
+  if (!image) {
+    const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
+    return { source: 'fallback_illustration', state: 'fallback', image: fallback, label: 'Image unavailable' };
   }
 
   if (image.kind === 'source_photo' || recipe.source?.type === 'web' || recipe.source?.type === 'imported' || recipe.source?.type === 'shared' || recipe.source?.type === 'manual') {
-    return { source: 'source_photo', image };
+    return { source: 'source_photo', state: 'ready', image };
   }
 
   if (image.kind === 'ai_generated_realistic_food') {
-    return { source: 'ai_food_photo', image, label: 'AI food preview' };
+    return { source: 'ai_food_photo', state: 'ready', image };
   }
 
   if (image.placeholder) {
-    return { source: 'fallback_illustration', image, label: 'Preview unavailable' };
+    return { source: 'fallback_illustration', state: 'fallback', image, label: 'Image unavailable' };
   }
 
   const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
-  return { source: 'fallback_illustration', image: fallback, label: 'Preview unavailable' };
+  return { source: 'fallback_illustration', state: 'fallback', image: fallback, label: 'Image unavailable' };
 };
