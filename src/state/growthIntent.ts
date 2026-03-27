@@ -1,4 +1,4 @@
-import type { OnboardingState } from '../types';
+import type { SupportTier } from '../types';
 
 const stopWords = new Set([
   'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'your', 'you', 'when', 'what', 'have',
@@ -15,69 +15,81 @@ const normalizeTokens = (value: string) => value
 
 const uniqueTokens = (value: string) => Array.from(new Set(normalizeTokens(value)));
 
-export const buildGrowthIntentNarrative = (onboarding: OnboardingState): string => (
-  [
-    onboarding.longHorizon,
-    onboarding.optionalNarrative,
-    onboarding.currentFocus,
-    onboarding.weeklyLens
-  ]
-    .filter((entry) => entry && entry.trim().length > 0)
-    .join('. ')
-);
-
-export interface GrowthRecommendationContext {
-  longHorizon: string;
+export interface GrowthIntentInput {
+  goalText: string;
+  planHighlights: string[];
   optionalNarrative: string;
-  supportTier: OnboardingState['supportTier'];
-  currentFocus: string;
-  weeklyLens: string;
+  supportTier: SupportTier;
 }
 
-export const buildGrowthRecommendationContext = (onboarding: OnboardingState): GrowthRecommendationContext => ({
-  longHorizon: onboarding.longHorizon.trim(),
-  optionalNarrative: onboarding.optionalNarrative.trim(),
-  supportTier: onboarding.supportTier,
-  currentFocus: onboarding.currentFocus.trim(),
-  weeklyLens: onboarding.weeklyLens.trim()
+interface LegacyOnboardingLike {
+  longHorizon?: string;
+  weeklyLens?: string;
+  currentFocus?: string;
+  optionalNarrative?: string;
+  supportTier?: SupportTier;
+}
+
+const normalizeInput = (input: GrowthIntentInput | LegacyOnboardingLike): GrowthIntentInput => ({
+  goalText: 'goalText' in input ? input.goalText ?? '' : input.longHorizon ?? '',
+  planHighlights: 'planHighlights' in input
+    ? input.planHighlights ?? []
+    : [input.currentFocus ?? '', input.weeklyLens ?? ''].filter(Boolean),
+  optionalNarrative: input.optionalNarrative ?? '',
+  supportTier: input.supportTier ?? 'Maintenance'
 });
 
-export const growthIntentAnchor = (onboarding: OnboardingState): string => (
-  onboarding.longHorizon.trim() || 'I know I’ve outgrown this app when I can make steady choices and keep going.'
-);
+export const buildGrowthIntentNarrative = (input: GrowthIntentInput | LegacyOnboardingLike): string => {
+  const normalizedInput = normalizeInput(input);
+  return (
+  [
+    normalizedInput.goalText,
+    normalizedInput.optionalNarrative,
+    ...normalizedInput.planHighlights
+  ]
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .join('. ')
+  );
+};
 
-export const scoreGrowthIntentAlignment = (candidate: string, onboarding: OnboardingState): number => {
-  const intentTokens = uniqueTokens(buildGrowthIntentNarrative(onboarding));
+export const growthIntentAnchor = (input: GrowthIntentInput | LegacyOnboardingLike): string => {
+  const normalizedInput = normalizeInput(input);
+  return normalizedInput.goalText.trim() || 'I know I’ve outgrown this app when I can make steady choices and keep going.';
+};
+
+export const scoreGrowthIntentAlignment = (candidate: string, input: GrowthIntentInput | LegacyOnboardingLike): number => {
+  const intentTokens = uniqueTokens(buildGrowthIntentNarrative(input));
   if (!intentTokens.length) return 0;
   const candidateTokens = new Set(uniqueTokens(candidate));
   const overlap = intentTokens.reduce((count, token) => count + (candidateTokens.has(token) ? 1 : 0), 0);
   return overlap / intentTokens.length;
 };
 
-export const growthIntentSupportLine = (onboarding: OnboardingState): string => {
-  const anchor = growthIntentAnchor(onboarding);
+export const growthIntentSupportLine = (input: GrowthIntentInput | LegacyOnboardingLike): string => {
+  const anchor = growthIntentAnchor(input);
   return `Goal: ${anchor}`;
 };
 
 type SupportTone = 'gentle' | 'stretch' | 'teach' | 'simple';
 
-const supportToneByTier: Record<OnboardingState['supportTier'], SupportTone> = {
+const supportToneByTier: Record<SupportTier, SupportTone> = {
   Active: 'teach',
   Maintenance: 'gentle',
   'Just in Case': 'simple'
 };
 
-export const supportTone = (onboarding: OnboardingState): SupportTone => supportToneByTier[onboarding.supportTier];
+export const supportTone = (supportTier: SupportTier | LegacyOnboardingLike): SupportTone => {
+  const resolvedTier = typeof supportTier === 'string' ? supportTier : supportTier.supportTier ?? 'Maintenance';
+  return supportToneByTier[resolvedTier];
+};
 
-export const todayNextStepFromStatedIntent = (onboarding: OnboardingState): string | null => {
-  const narrative = buildGrowthIntentNarrative(onboarding).toLowerCase();
-  const focus = onboarding.currentFocus.trim();
-  const weeklyLens = onboarding.weeklyLens.trim();
-  const longHorizon = onboarding.longHorizon.trim();
+const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
 
-  if (!narrative && !focus && !weeklyLens && !longHorizon) {
-    return null;
-  }
+export const todayNextStepFromStatedIntent = (input: GrowthIntentInput | LegacyOnboardingLike): string | null => {
+  const normalizedInput = normalizeInput(input);
+  const narrative = buildGrowthIntentNarrative(normalizedInput).toLowerCase();
+  if (!narrative.trim()) return null;
 
   if (hasAny(narrative, ['snack', 'graz', 'late night'])) {
     return 'Try this: plan one steady meal before late-night hunger hits.';
@@ -91,64 +103,25 @@ export const todayNextStepFromStatedIntent = (onboarding: OnboardingState): stri
   if (hasAny(narrative, ['independ', 'own', 'less help', 'confidence'])) {
     return 'Try this: make one meal decision you can fully own today.';
   }
-  if (focus) {
-    return 'Try this: choose one doable action tied to your current focus.';
-  }
-  if (weeklyLens) {
-    return 'One small step: make one choice today that supports your week.';
+  if (normalizedInput.planHighlights[0]) {
+    return 'Try this: choose one doable action tied to your current plan.';
   }
   return 'One small step: pick one realistic action for today.';
 };
 
-export const buildRecommendationPrompt = (userPrompt: string, onboarding: OnboardingState): string => {
-  const context = buildGrowthRecommendationContext(onboarding);
+export const buildRecommendationPrompt = (userPrompt: string, input: GrowthIntentInput | LegacyOnboardingLike): string => {
+  const normalizedInput = normalizeInput(input);
   return [
     userPrompt.trim(),
-    context.longHorizon ? `Keep this aligned with: ${context.longHorizon}` : '',
-    context.optionalNarrative ? `Make it easier when: ${context.optionalNarrative}` : '',
-    `Support preference: ${context.supportTier}`,
-    context.currentFocus ? `Keep it practical for: ${context.currentFocus}` : '',
-    context.weeklyLens ? `This week to support: ${context.weeklyLens}` : ''
+    normalizedInput.goalText ? `Keep this aligned with: ${normalizedInput.goalText}` : '',
+    normalizedInput.optionalNarrative ? `Make it easier when: ${normalizedInput.optionalNarrative}` : '',
+    normalizedInput.planHighlights[0] ? `Keep it practical for: ${normalizedInput.planHighlights[0]}` : ''
   ].filter(Boolean).join('\n');
 };
 
-const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
-
-const longHorizonPriority = (onboarding: OnboardingState): string => {
-  const narrative = buildGrowthIntentNarrative(onboarding).toLowerCase();
-  if (hasAny(narrative, ['snack', 'graz', 'late night'])) return 'A steadier meal structure may help more than snacky fallback tonight.';
-  if (hasAny(narrative, ['picky', 'variety', 'expand', 'less picky'])) return 'This stays familiar while adding a small bridge toward a wider food range.';
-  if (hasAny(narrative, ['halal', 'cultural', 'meaningful'])) return 'This keeps the meal grounded and repeatable in your cooking style.';
-  if (hasAny(narrative, ['independ', 'own', 'less help', 'confidence'])) return 'This builds a repeatable pattern you can reuse without daily prompting.';
-  return 'Simple, grounding, and aligned with how you want to eat.';
-};
-
-export const explainGrowthAlignedSuggestion = (onboarding: OnboardingState): string => {
-  const friction = onboarding.optionalNarrative.trim();
-  const focus = onboarding.currentFocus.trim() || onboarding.weeklyLens.trim();
-  const tone = supportTone(onboarding);
-
-  const frictionLine = friction
-    ? `Built around what feels hardest right now: ${friction.slice(0, 78)}${friction.length > 78 ? '…' : ''}`
-    : 'Built for easy follow-through today.';
-  const longHorizonLine = longHorizonPriority(onboarding);
-  const practicalLine = focus
-    ? `Practical fit: ${focus.slice(0, 66)}${focus.length > 66 ? '…' : ''}`
-    : 'Practical fit: low effort for tonight.';
-  const toneLine = tone === 'teach'
-    ? 'Style: short why + repeatable steps.'
-    : tone === 'stretch'
-      ? 'Style: one nearby stretch, not a leap.'
-      : tone === 'simple'
-        ? 'Style: predictable defaults.'
-        : 'Style: calm and low-pressure.';
-
-  return [frictionLine, longHorizonLine, practicalLine, toneLine].join(' ');
-};
-
-export const todayMode = (input: { hasUsageHistory: boolean; onboarding: OnboardingState; needsImmediateHelp: boolean }): 'utility_first' | 'growth_aligned' | 'reflection_aware' => {
+export const todayMode = (input: { hasUsageHistory: boolean; hasExplicitGoal: boolean; needsImmediateHelp: boolean }): 'utility_first' | 'growth_aligned' | 'reflection_aware' => {
   if (input.needsImmediateHelp) return 'utility_first';
   if (input.hasUsageHistory) return 'reflection_aware';
-  if (input.onboarding.longHorizon.trim()) return 'growth_aligned';
+  if (input.hasExplicitGoal) return 'growth_aligned';
   return 'utility_first';
 };

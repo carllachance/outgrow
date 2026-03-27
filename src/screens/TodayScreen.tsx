@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
-import { supportTone, todayMode, todayNextStepFromStatedIntent } from '../state/growthIntent';
+import { supportTone, todayMode, todayNextStepFromStatedIntent, type GrowthIntentInput } from '../state/growthIntent';
 
 type StretchGoal = {
   id: string;
@@ -18,10 +18,15 @@ export const TodayScreen = () => {
   const { state, addJournalEntry, addReturnMoment, saveTodaySuccess } = useStore();
   const MIN_HISTORY_FOR_PATTERN_COPY = 6;
   const isSafetyMode = !state.safety.flags.optimization_enabled;
+  const growthIntentInput = useMemo<GrowthIntentInput>(() => ({
+    goalText: state.goal?.active_display_text ?? '',
+    planHighlights: state.planItems.filter((item) => item.status === 'active').map((item) => item.title),
+    optionalNarrative: state.onboarding.optionalNarrative,
+    supportTier: state.onboarding.supportTier
+  }), [state.goal?.active_display_text, state.onboarding.optionalNarrative, state.onboarding.supportTier, state.planItems]);
   const hasSetDirection = Boolean(
-    state.onboarding.longHorizon
-    || state.onboarding.weeklyLens
-    || state.onboarding.currentFocus
+    growthIntentInput.goalText
+    || growthIntentInput.planHighlights[0]
     || state.journalEntries.length
   );
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
@@ -41,20 +46,19 @@ export const TodayScreen = () => {
   const recentJournalTheme = state.journalEntries[0]?.content;
   const hour = new Date().getHours();
   const timeOfDayHint = hour < 12 ? 'this morning' : hour < 18 ? 'this afternoon' : 'tonight';
-  const tone = supportTone(state.onboarding);
+  const tone = supportTone(state.onboarding.supportTier);
   const usageHistoryCount = state.returnMoments.length + state.journalEntries.length + state.weeklyReflections.length + state.mealLogs.length;
   const hasPatternHistory = usageHistoryCount >= MIN_HISTORY_FOR_PATTERN_COPY;
   const hasExplicitIntent = Boolean(
-    state.onboarding.longHorizon.trim()
-    || state.onboarding.currentFocus.trim()
-    || state.onboarding.weeklyLens.trim()
+    growthIntentInput.goalText.trim()
+    || growthIntentInput.planHighlights[0]
   );
   const hasTimelyContext = Boolean(recentWin || recentJournalTheme);
   const shouldRenderGuidance = hasPatternHistory || hasExplicitIntent || hasTimelyContext;
   const mode = todayMode({
     needsImmediateHelp: !savedTodaySuccess && !todaySuccessDraft.trim(),
     hasUsageHistory: hasPatternHistory,
-    onboarding: state.onboarding
+    hasExplicitGoal: hasExplicitIntent
   });
   const modeLine = !shouldRenderGuidance
     ? ''
@@ -67,7 +71,7 @@ export const TodayScreen = () => {
           : 'Quick editorial guidance can help you choose one grounded next move.';
 
   const suggestionChips = useMemo(() => {
-    const intentBasedNextStep = todayNextStepFromStatedIntent(state.onboarding);
+    const intentBasedNextStep = todayNextStepFromStatedIntent(growthIntentInput);
     if (!shouldRenderGuidance) return [];
     const suggestions = [
       tone === 'simple'
@@ -83,7 +87,7 @@ export const TodayScreen = () => {
     if (tone === 'simple') return suggestions.slice(0, 2);
     if (tone === 'teach') return suggestions;
     return suggestions.slice(0, 4);
-  }, [hasExplicitIntent, hasPatternHistory, hasTimelyContext, recentJournalTheme, recentWin, shouldRenderGuidance, state.onboarding, timeOfDayHint, tone]);
+  }, [growthIntentInput, hasExplicitIntent, hasPatternHistory, hasTimelyContext, recentJournalTheme, recentWin, shouldRenderGuidance, timeOfDayHint, tone]);
 
   const stretchGoals = useMemo<StretchGoal[]>(
     () => [

@@ -5,14 +5,43 @@ export interface UserProfile {
   pronouns?: string;
 }
 
+export type GoalStatus = 'active' | 'archived' | 'superseded';
+export type GoalRevisionSource = 'user_edit' | 'suggestion_accept' | 'migration';
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  original_text: string;
+  active_display_text: string;
+  created_at: string;
+  updated_at: string;
+  status: GoalStatus;
+}
+
+export interface GoalRevisionHistory {
+  id: string;
+  goal_id: string;
+  prior_text: string;
+  new_text: string;
+  revision_source: GoalRevisionSource;
+  created_at: string;
+}
+
+export interface GoalRefinementSuggestion {
+  id: string;
+  goal_id: string;
+  suggested_text: string;
+  rationale_short: string;
+  created_at: string;
+  accepted_at?: string;
+  dismissed_at?: string;
+}
+
 export interface OnboardingState {
-  longHorizon: string;
-  weeklyLens: string;
-  currentFocus: string;
   optionalNarrative: string;
   expectedTimeline: string;
   supportTier: SupportTier;
-  activeStep: 1 | 2 | 3 | 4;
+  activeStep: 1 | 2 | 3;
   hasCompleted: boolean;
 }
 
@@ -145,8 +174,26 @@ export interface InsightSupportLink {
   createdAt: string;
 }
 
+export type PlanItemType = 'reminder' | 'meal' | 'snack' | 'movement' | 'sleep' | 'routine' | 'reflection' | 'other';
+
+export interface PlanItem {
+  id: string;
+  item_type: PlanItemType;
+  title: string;
+  description?: string;
+  cadence?: string;
+  status: 'active' | 'done' | 'archived';
+  source_type: 'user_added' | 'system_suggested' | 'system_confirmed' | 'onboarding_seeded';
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AppState {
   profile: UserProfile;
+  goal: Goal | null;
+  goalRevisionHistory: GoalRevisionHistory[];
+  goalRefinementSuggestions: GoalRefinementSuggestion[];
+  planItems: PlanItem[];
   onboarding: OnboardingState;
   todaySuccessByDate: Record<string, string>;
   journalEntries: JournalEntry[];
