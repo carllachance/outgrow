@@ -320,6 +320,35 @@ test('more-like-this feedback increases style similarity without exact duplicate
   assert(next.recipe.tags.some((tag) => first.recipe.tags.includes(tag)), 'more-like-this should keep a similar style signal');
 });
 
+test('session suggestions avoid short-loop repeats and repeated patterns', () => {
+  let context = createRecipeSuggestionContext('quick dinner');
+  const titles: string[] = [];
+  const patternKeys: string[] = [];
+
+  for (let index = 0; index < 8; index += 1) {
+    const result = suggestRecipeFromPromptWithContext({ prompt: 'quick dinner', context, nowIso });
+    context = result.context;
+    titles.push(result.recipe.title);
+    patternKeys.push(`${result.recipe.ingredients[0]?.itemKey}|${result.recipe.tags[2]}|${result.recipe.title.split(' ').at(-1)?.toLowerCase()}`);
+  }
+
+  assert(new Set(titles).size >= 7, 'repeated suggest-another turns should keep title variety high');
+  assert(new Set(patternKeys).size >= 6, 'repeated suggest-another turns should broaden method/format/protein patterns');
+});
+
+test('session novelty memory survives prompt changes', () => {
+  let context = createRecipeSuggestionContext('quick dinner');
+  const first = suggestRecipeFromPromptWithContext({ prompt: 'quick dinner', context, nowIso });
+  context = first.context;
+
+  const afterPromptChange = suggestRecipeFromPromptWithContext({ prompt: 'lighter weeknight ideas', context, nowIso });
+  const previousTitleTokens = new Set(first.recipe.title.toLowerCase().split(/\s+/));
+  const nextTitleTokens = new Set(afterPromptChange.recipe.title.toLowerCase().split(/\s+/));
+  const overlap = Array.from(previousTitleTokens).filter((token) => nextTitleTokens.has(token)).length;
+
+  assert(overlap < previousTitleTokens.size, 'prompt changes should not erase novelty pressure from session history');
+});
+
 test('weekly success meal cues softly influence recipe style and provide transparent steering text', () => {
   const context = createRecipeSuggestionContext('dinner idea');
   const result = suggestRecipeFromPromptWithContext({

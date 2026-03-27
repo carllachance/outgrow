@@ -36,6 +36,7 @@ interface RecipeCandidateProfile {
   veg: string;
   flavor: string;
   method: string;
+  format: 'bowl' | 'plate' | 'stew' | 'tacos';
   styleTag: string;
   quickTag: 'quick' | 'batch-cook';
   spicy: boolean;
@@ -92,6 +93,9 @@ export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionC
   promptSignature: promptSignature(prompt),
   iterations: 0,
   recentSuggestionSignatures: [],
+  sessionRecentSuggestionSignatures: [],
+  sessionRecentTitleSignatures: [],
+  sessionRecentPatternSignatures: [],
   rejectedSignatures: [],
   positiveExampleSignatures: [],
   preferredTokens: [],
@@ -132,28 +136,34 @@ const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidat
   const wantsComfort = hasAnyToken(tokens, ['comfort', 'cozy', 'creamy']);
   const wantsSpicy = hasAnyToken(tokens, ['spicy', 'hot', 'chili']);
 
-  const proteins = wantsVegetarian ? ['chickpeas', 'tofu', 'lentils', 'white beans'] : ['chicken breast', 'salmon', 'ground turkey', 'shrimp'];
-  const bases = ['rice', 'quinoa', 'orzo', 'farro'];
-  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach', 'asparagus'];
+  const proteins = wantsVegetarian
+    ? ['chickpeas', 'tofu', 'lentils', 'white beans', 'tempeh', 'mushrooms']
+    : ['chicken breast', 'salmon', 'ground turkey', 'shrimp', 'pork tenderloin', 'lean beef'];
+  const bases = ['rice', 'quinoa', 'orzo', 'farro', 'potatoes', 'cauliflower rice'];
+  const vegs = ['broccoli', 'zucchini', 'bell pepper', 'spinach', 'asparagus', 'green beans', 'cabbage'];
   const flavors = wantsComfort
     ? ['Creamy Herb', 'Roasted Garlic Yogurt', 'Silky Lemon Dill', 'Parmesan Pepper']
     : wantsSpicy
       ? ['Spicy Lime', 'Chipotle Citrus', 'Harissa Garlic', 'Smoky Chili']
       : ['Lemon Garlic', 'Herby Dijon', 'Miso Ginger', 'Tomato Basil'];
-  const methods = wantsQuick ? ['Skillet', 'Sheet Pan', 'Stir Fry', 'One Pot'] : ['Roast + Simmer', 'Braise', 'Sheet Pan', 'One Pot'];
+  const methods = wantsQuick
+    ? ['Skillet', 'Sheet Pan', 'Stir Fry', 'One Pot', 'Griddle']
+    : ['Roast + Simmer', 'Braise', 'Sheet Pan', 'One Pot', 'Slow Simmer'];
+  const formats: Array<'bowl' | 'plate' | 'stew' | 'tacos'> = wantsQuick ? ['bowl', 'tacos', 'plate', 'stew'] : ['plate', 'stew', 'bowl', 'tacos'];
 
   const shuffledProteins = rotate(proteins, iteration);
   const shuffledBases = rotate(bases, Math.floor(iteration / 2));
   const shuffledVegs = rotate(vegs, Math.floor(iteration / 3));
 
   const profiles: RecipeCandidateProfile[] = [];
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < 24; index += 1) {
     profiles.push({
       protein: shuffledProteins[index % shuffledProteins.length],
       base: shuffledBases[index % shuffledBases.length],
       veg: shuffledVegs[index % shuffledVegs.length],
       flavor: flavors[index % flavors.length],
       method: methods[index % methods.length],
+      format: formats[(index + Math.floor(iteration / 2)) % formats.length],
       styleTag: wantsVegetarian ? 'vegetarian' : 'protein-forward',
       quickTag: wantsQuick ? 'quick' : 'batch-cook',
       spicy: wantsSpicy,
@@ -165,13 +175,35 @@ const buildCandidatePool = (tokens: string[], iteration: number): RecipeCandidat
 };
 
 const signatureFromProfile = (profile: RecipeCandidateProfile): string => (
-  [profile.protein, profile.base, profile.veg, profile.flavor.toLowerCase(), profile.method.toLowerCase()].join('|')
+  [profile.protein, profile.base, profile.veg, profile.flavor.toLowerCase(), profile.method.toLowerCase(), profile.format].join('|')
+);
+
+const projectedRecipeTitle = (profile: RecipeCandidateProfile): string => {
+  const formatLabel = profile.format === 'bowl'
+    ? 'Bowl'
+    : profile.format === 'plate'
+      ? 'Plate'
+      : profile.format === 'stew'
+        ? 'Stew'
+        : 'Tacos';
+  return `${profile.flavor} ${titleCase(profile.protein)} ${titleCase(profile.method)} ${formatLabel}`;
+};
+
+const titleSignature = (title: string): string => (
+  tokenizePrompt(title)
+    .filter((token) => !['with', 'and', 'the'].includes(token))
+    .sort()
+    .join('|')
+);
+
+const patternSignatureFromProfile = (profile: RecipeCandidateProfile): string => (
+  [normalizeRuleToken(profile.protein), normalizeRuleToken(profile.method), profile.format].join('|')
 );
 
 const profileTraits = (profile: RecipeCandidateProfile) => ({
   cuisine: profile.flavor.toLowerCase(),
   protein: normalizeRuleToken(profile.protein),
-  format: profile.base.toLowerCase().includes('rice') || profile.base.toLowerCase().includes('quinoa') ? 'bowl' : 'plate',
+  format: profile.format,
   cookingMethod: profile.method.toLowerCase(),
   effort: profile.method === 'Braise' || profile.method === 'Roast + Simmer' ? 'high' : profile.quickTag === 'quick' ? 'low' : 'medium',
   cleanup: profile.method === 'Sheet Pan' || profile.method === 'One Pot' || profile.method === 'Skillet' ? 'low' : 'medium',
@@ -268,7 +300,7 @@ const buildRecipeFromProfile = (
 
   return {
     id: `recipe-${crypto.randomUUID()}`,
-    title: `${profile.flavor} ${titleCase(profile.protein)} ${titleCase(profile.method)} Bowl`,
+    title: projectedRecipeTitle(profile),
     description: `AI suggestion based on: "${prompt.trim()}"`,
     source: { type: 'ai_generated', label: 'Outgrow AI planner' },
     status: 'draft',
@@ -365,11 +397,23 @@ const chooseCandidate = (
 ): { candidate: RecipeCandidateProfile; breakdown: CandidateScoreBreakdown } => {
   const scored = pool.map((candidate, index) => {
     const signature = signatureFromProfile(candidate);
+    const candidateTitleSignature = titleSignature(projectedRecipeTitle(candidate));
+    const patternSignature = patternSignatureFromProfile(candidate);
     const isRejected = context.rejectedSignatures.includes(signature);
     const wasRecent = context.recentSuggestionSignatures.includes(signature);
+    const wasSessionRepeat = context.sessionRecentSuggestionSignatures.includes(signature);
     const preferredBoost = context.preferredTokens.reduce((score, token) => score + (signature.includes(token) ? 1 : 0.05), 0);
     const similarityScore = options?.targetSimilarityTo ? tokenOverlap(signature, options.targetSimilarityTo) : 0;
     const nearDuplicatePenalty = options?.targetSimilarityTo && similarityScore >= 0.95 ? 3 : 0;
+    const titleNearDuplicatePenalty = context.sessionRecentTitleSignatures.reduce((maxPenalty, priorTitleSignature) => {
+      const similarity = tokenOverlap(candidateTitleSignature, priorTitleSignature);
+      if (similarity >= 0.95) return Math.max(maxPenalty, 7);
+      if (similarity >= 0.8) return Math.max(maxPenalty, 4.5);
+      return maxPenalty;
+    }, 0);
+    const repeatedPatternPenalty = context.sessionRecentPatternSignatures.includes(patternSignature) ? 6 : 0;
+    const uniquePatternsInRecentWindow = new Set(context.sessionRecentPatternSignatures.slice(0, 8)).size;
+    const broaderExplorationPenalty = repeatedPatternPenalty > 0 && uniquePatternsInRecentWindow < 5 ? 4 : 0;
     const weeklyScore = weeklySignalScore(candidate, options?.weeklySignals ?? []) * (options?.weeklyInfluenceScale ?? 0);
     const standingOrderScore = options?.foodRules
       ? profileStandingOrderScore(candidate, options.foodRules, options.promptTokens ?? [])
@@ -377,9 +421,9 @@ const chooseCandidate = (
     const hardBlocked = profileViolatesHardRules(candidate, options?.blockedTokens ?? []);
 
     const negativeFeedbackPenalty = scoreNegativeReasons(candidate, options?.feedbackReasons);
-    const noveltyPenalty = wasRecent ? 3 : 0;
+    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty;
     const rejectionPenalty = isRejected ? 5 : 0;
-    const duplicatePenalty = nearDuplicatePenalty;
+    const duplicatePenalty = nearDuplicatePenalty + titleNearDuplicatePenalty;
 
     let score = similarityScore + preferredBoost + weeklyScore + standingOrderScore;
     score -= negativeFeedbackPenalty + noveltyPenalty + rejectionPenalty + duplicatePenalty;
@@ -401,7 +445,11 @@ const chooseCandidate = (
   });
 
   const notRecentOrRejected = scored.filter((entry) => !context.rejectedSignatures.includes(entry.signature) && !context.recentSuggestionSignatures.includes(entry.signature));
-  const scoredPool = notRecentOrRejected.length ? notRecentOrRejected : scored;
+  const explorationFirst = notRecentOrRejected.filter((entry) => (
+    !context.sessionRecentSuggestionSignatures.includes(entry.signature)
+    && !context.sessionRecentPatternSignatures.includes(patternSignatureFromProfile(entry.candidate))
+  ));
+  const scoredPool = explorationFirst.length ? explorationFirst : (notRecentOrRejected.length ? notRecentOrRejected : scored);
 
   scoredPool.sort((left, right) => right.score - left.score || left.index - right.index);
   const winner = scoredPool[0] ?? scored[0];
@@ -437,7 +485,12 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   const promptChangedSignificantly = nextPromptSignature !== input.context.promptSignature;
 
   const baselineContext = promptChangedSignificantly
-    ? createRecipeSuggestionContext(input.prompt)
+    ? {
+        ...createRecipeSuggestionContext(input.prompt),
+        sessionRecentSuggestionSignatures: [...input.context.sessionRecentSuggestionSignatures],
+        sessionRecentTitleSignatures: [...input.context.sessionRecentTitleSignatures],
+        sessionRecentPatternSignatures: [...input.context.sessionRecentPatternSignatures]
+      }
     : {
         ...input.context,
         feedbackEvents: [...input.context.feedbackEvents],
@@ -497,12 +550,17 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     blockedTokens
   });
   const generatedSignature = signatureFromProfile(selection.candidate);
+  const generatedTitleSignature = titleSignature(recipe.title);
+  const generatedPatternSignature = patternSignatureFromProfile(selection.candidate);
 
   const nextContext: RecipeSuggestionContext = {
     ...baselineContext,
     promptSignature: nextPromptSignature,
     iterations: baselineContext.iterations + 1,
     recentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.recentSuggestionSignatures]).slice(0, 8),
+    sessionRecentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.sessionRecentSuggestionSignatures]).slice(0, 28),
+    sessionRecentTitleSignatures: arrayUnique([generatedTitleSignature, ...baselineContext.sessionRecentTitleSignatures]).slice(0, 28),
+    sessionRecentPatternSignatures: arrayUnique([generatedPatternSignature, ...baselineContext.sessionRecentPatternSignatures]).slice(0, 20),
     recentSuggestedRecipeIds: arrayUnique([recipe.id, ...baselineContext.recentSuggestedRecipeIds]).slice(0, 12),
     lastSteeringSignals: arrayUnique([
       ...steeringSignals,
