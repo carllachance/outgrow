@@ -27,7 +27,7 @@ export const InsightDetailScreen = () => {
       <section className="chapter">
         <h3>Why these days match</h3>
         {links.slice(0, 3).map((link) => <p key={link.id}>{link.explanation ?? 'Included because this day matched part of the pattern.'}</p>)}
-        {!links.length ? <p>No supporting days yet.</p> : null}
+        {!links.length ? <p>No supporting days yet. More check-ins will help fill this in.</p> : null}
       </section>
     </div>
   );

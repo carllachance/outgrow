@@ -10,8 +10,8 @@ const startingPointOptions = [
 ];
 
 const supportStyleOptions = [
-  { value: 'Active', label: 'More guidance' },
-  { value: 'Maintenance', label: 'Balanced check-ins' },
+  { value: 'Active', label: 'Coach me actively' },
+  { value: 'Maintenance', label: 'Keep it steady and light-touch' },
   { value: 'Just in Case', label: 'Only when I ask' }
 ] as const;
 
@@ -45,7 +45,7 @@ export const OnboardingScreen = () => {
       <form onSubmit={onSubmit} className="stack">
         {activeStep === 1 ? (
           <section className="chapter" aria-labelledby="onboarding-step-one">
-          <p className="panel-kicker">Step one</p>
+          <p className="panel-kicker">Chapter one</p>
           <h2 id="onboarding-step-one">I know I&apos;ve Outgrown this app when…</h2>
           <p>This keeps your plan focused.</p>
           <textarea
@@ -70,7 +70,7 @@ export const OnboardingScreen = () => {
 
         {activeStep === 2 ? (
           <section className="chapter" aria-labelledby="onboarding-friction-step">
-          <p className="panel-kicker">Step two</p>
+          <p className="panel-kicker">Chapter two</p>
           <h2 id="onboarding-friction-step">What&apos;s the biggest friction right now?</h2>
           <p>What keeps getting in the way?</p>
           <textarea
@@ -87,7 +87,7 @@ export const OnboardingScreen = () => {
 
         {activeStep === 3 ? (
           <section className="chapter" aria-labelledby="onboarding-support-style-step">
-          <p className="panel-kicker">Step three</p>
+          <p className="panel-kicker">Chapter three</p>
           <h2 id="onboarding-support-style-step">What kind of support feels best?</h2>
           <p>Choose how hands-on you want this to be.</p>
           <div className="choices">
@@ -111,7 +111,7 @@ export const OnboardingScreen = () => {
 
         {activeStep === 4 ? (
           <section className="chapter" aria-labelledby="onboarding-focus-step">
-          <p className="panel-kicker">Step four</p>
+          <p className="panel-kicker">Chapter four</p>
           <h2 id="onboarding-focus-step">What&apos;s the practical starting point this week?</h2>
           <p>Pick one place to start.</p>
           <div className="choices">
@@ -133,7 +133,7 @@ export const OnboardingScreen = () => {
           />
           <button type="button" onClick={() => goToStep(3)}>Back</button>
           <button className="primary-cta" type="submit">
-            Open Today
+            Enter Today
           </button>
         </section>
         ) : null}

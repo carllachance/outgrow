@@ -19,7 +19,7 @@ export const KindWordsScreen = () => {
 
   return (
     <div className="screen">
-      <BrandHeader title="Kind words" note="Short, steady support." />
+      <BrandHeader title="Be kind to yourself" note="Support without pressure." />
       <Card>
         <p className="muted">Not medical advice.</p>
         <p className="muted">Grounded in your goal: {anchor}</p>
@@ -38,7 +38,7 @@ export const KindWordsScreen = () => {
           onClick={() => {
             const trimmed = request.trim();
             if (!trimmed) {
-              setHandMessage('Add a little detail so I can help.');
+              setHandMessage('Share a little context so I can help.');
               return;
             }
 
@@ -49,10 +49,10 @@ export const KindWordsScreen = () => {
             setRequest('');
           }}
         >
-          Get support
+          I could use a hand
         </button>
         {handMessage ? <p>{handMessage}</p> : null}
-        {state.safety.mode === 'prolonged_safe_mode' ? <p>Support is limited right now. Keep requests short.</p> : null}
+        {state.safety.mode === 'prolonged_safe_mode' ? <p>Support is limited right now. Keep requests short and gentle.</p> : null}
       </Card>
       <Card title="Anonymous community shares">
         {isSafetyMode ? (
@@ -79,7 +79,7 @@ export const KindWordsScreen = () => {
           type="button"
           onClick={() => {
             const message = addCommunityShare(communityPost, category);
-            setPublishMessage(message || 'Shared anonymously.');
+            setPublishMessage(message || 'Shared anonymously. Thanks for contributing.');
             if (!message || !message.includes('not publish')) {
               setCommunityPost('');
             }

@@ -185,7 +185,7 @@ export const MealPlannerScreen = () => {
 
   const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral', reasons: RecipeFeedbackReason[] = []) => {
     if (!prompt.trim()) {
-      setActionMessage('Tell me what you want tonight.');
+      setActionMessage('Tell me what you need tonight, and I’ll draft something.');
       return;
     }
     const recommendationPrompt = buildRecommendationPrompt(prompt, state.onboarding);
@@ -544,7 +544,7 @@ export const MealPlannerScreen = () => {
       <Card title="This week’s shortlist">
         <p className="muted">Save a few options, then assign a day.</p>
         {!weeklyShortlist.length ? (
-          <p className="muted">No shortlisted recipes yet.</p>
+          <p className="muted">No shortlisted recipes yet. Use “Shortlist” on anything you want to keep in play.</p>
         ) : (
           <ul className="planner-shortlist-list">
             {weeklyShortlist.map((candidate) => (
@@ -636,7 +636,7 @@ export const MealPlannerScreen = () => {
 
       <Card title="Shopping notes">
         {!lastShoppingExplanation.length ? (
-          <p className="muted">Use “Refresh shopping” after planning a meal.</p>
+          <p className="muted">Use “Refresh shopping” after you plan a meal.</p>
         ) : (
           <ul className="explanation-list">
             {lastShoppingExplanation.map((line) => <li key={line}>{line}</li>)}

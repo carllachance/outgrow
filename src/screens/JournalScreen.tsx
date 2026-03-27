@@ -43,7 +43,7 @@ export const JournalScreen = () => {
   return (
     <div className="screen">
       <h1>Journal</h1>
-      <p className="muted">A place to think clearly.</p>
+      <p className="muted">A place to reflect honestly.</p>
       {query.get('focus') === 'today-plan' ? (
         <Card title="Today's journal plan">
           {focusedPlan ? (
@@ -57,7 +57,7 @@ export const JournalScreen = () => {
         </Card>
       ) : null}
       <Card title="Freeform journaling">
-        <p className="muted">Write what&apos;s on your mind.</p>
+        <p className="muted">Try: Write what&apos;s on your mind, what helped, or one win.</p>
         <form onSubmit={submitEntry}>
           <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="Write what's on your mind." />
           <button type="submit">Save reflection</button>

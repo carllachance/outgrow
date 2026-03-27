@@ -97,8 +97,8 @@ export const TodayScreen = () => {
       {
         id: 'note-tonight',
         kind: 'input',
-        label: 'Leave a note for later',
-        support: 'One sentence is enough',
+        label: 'Leave a note for tonight-you',
+        support: 'One sentence is enough.',
       },
       {
         id: 'kind-visit',
@@ -122,7 +122,7 @@ export const TodayScreen = () => {
 
   const startResetWalkTimer = () => {
     setResetWalkSecondsRemaining(10 * 60);
-    setInlineMessage('10-minute timer started');
+    setInlineMessage('10-minute timer started.');
   };
 
   const saveTodaySuccessDraft = (closeCard = true) => {
@@ -131,7 +131,7 @@ export const TodayScreen = () => {
       setTodaySuccessMessage(result);
       return false;
     }
-    setTodaySuccessMessage('Saved');
+    setTodaySuccessMessage('Saved for today.');
     if (closeCard) {
       setIsEditingTodaySuccess(false);
     }
@@ -164,7 +164,7 @@ export const TodayScreen = () => {
       setTodaySuccessMessage(result);
       return;
     }
-    setTodaySuccessMessage('Saved to Journal.');
+    setTodaySuccessMessage('Saved to Journal. You can open today’s plan below.');
   };
 
   return (
@@ -174,7 +174,7 @@ export const TodayScreen = () => {
       ) : (
         <BrandHeader
           title="Glad You’re Here."
-          note="Pick one clear next step."
+          note="Start with one honest next step."
           kicker="Arrival"
         />
       )}
@@ -238,7 +238,7 @@ export const TodayScreen = () => {
                       setTodaySuccessDraft(suggestion);
                       setTodaySuccessMessage('');
                       saveTodaySuccess(todayDateKey, suggestion);
-                      setTodaySuccessMessage('Saved');
+                      setTodaySuccessMessage('Saved for today.');
                       setIsEditingTodaySuccess(false);
                     }}
                   >
@@ -267,8 +267,8 @@ export const TodayScreen = () => {
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>
 
-      <section className="chapter today-stretch" aria-label="Optional actions">
-        <p className="panel-kicker">Optional</p>
+      <section className="chapter today-stretch" aria-label="If it helps">
+        <p className="panel-kicker">If it helps</p>
         <div className="stretch-list" role="list" aria-label="Optional support actions">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;
