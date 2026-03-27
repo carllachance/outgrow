@@ -33,10 +33,15 @@ export const OnboardingScreen = () => {
 
   return (
     <div className="screen onboarding-screen">
-      <WelcomeHero />
-      <div className="onboarding-progress" aria-live="polite">
-        Step {activeStep} of {totalSteps}
-      </div>
+      <WelcomeHero
+        onPrimaryAction={() => goToStep(1)}
+        onSecondaryAction={() => goToStep(4)}
+      />
+      {activeStep > 1 ? (
+        <div className="onboarding-progress" aria-live="polite">
+          Step {activeStep} of {totalSteps}
+        </div>
+      ) : null}
       <form onSubmit={onSubmit} className="stack">
         {activeStep === 1 ? (
           <section className="chapter" aria-labelledby="onboarding-step-one">
