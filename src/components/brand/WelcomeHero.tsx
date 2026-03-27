@@ -11,14 +11,14 @@ export const WelcomeHero = ({ onPrimaryAction, onSecondaryAction }: WelcomeHeroP
     </div>
     <h1 id="welcome-hero-title">Build trust with food, one step at a time.</h1>
     <p className="welcome-hero-support">
-      Set things up around your real life.
+      Set this up around your real life.
     </p>
     <div className="welcome-hero-actions">
       <button type="button" className="primary-cta welcome-hero-primary" onClick={onPrimaryAction}>
-        Get started
+        Start chapter one
       </button>
       <button type="button" className="welcome-hero-secondary" onClick={onSecondaryAction}>
-        Skip ahead
+        See the full flow
       </button>
     </div>
   </header>
