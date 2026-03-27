@@ -157,6 +157,8 @@ export interface RecipeSuggestionSessionContext {
   promptSignature: string;
   iterations: number;
   recentSuggestionSignatures: string[];
+  recentInitialSuggestionSignatures: string[];
+  recentInitialClusterSignatures: string[];
   sessionRecentSuggestionSignatures: string[];
   sessionRecentTitleSignatures: string[];
   sessionRecentPatternSignatures: string[];
