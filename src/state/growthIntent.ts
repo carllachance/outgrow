@@ -69,6 +69,37 @@ const supportToneByTier: Record<OnboardingState['supportTier'], SupportTone> = {
 
 export const supportTone = (onboarding: OnboardingState): SupportTone => supportToneByTier[onboarding.supportTier];
 
+export const todayNextStepFromStatedIntent = (onboarding: OnboardingState): string | null => {
+  const narrative = buildGrowthIntentNarrative(onboarding).toLowerCase();
+  const focus = onboarding.currentFocus.trim();
+  const weeklyLens = onboarding.weeklyLens.trim();
+  const longHorizon = onboarding.longHorizon.trim();
+
+  if (!narrative && !focus && !weeklyLens && !longHorizon) {
+    return null;
+  }
+
+  if (hasAny(narrative, ['snack', 'graz', 'late night'])) {
+    return 'One small step: plan one steady meal before late-night hunger hits.';
+  }
+  if (hasAny(narrative, ['picky', 'variety', 'expand', 'less picky'])) {
+    return 'Maybe start here: pair one familiar food with one small stretch.';
+  }
+  if (hasAny(narrative, ['halal', 'cultural', 'meaningful'])) {
+    return 'A good next step: choose a grounded meal that still feels true to your style.';
+  }
+  if (hasAny(narrative, ['independ', 'own', 'less help', 'confidence'])) {
+    return 'A good next step: make one meal decision you can fully own today.';
+  }
+  if (focus) {
+    return 'Maybe start here: choose one doable action connected to your current focus.';
+  }
+  if (weeklyLens) {
+    return 'One small step: make one choice today that supports your week.';
+  }
+  return 'One small step: pick one realistic action that fits what matters to you right now.';
+};
+
 export const buildRecommendationPrompt = (userPrompt: string, onboarding: OnboardingState): string => {
   const context = buildGrowthRecommendationContext(onboarding);
   return [
