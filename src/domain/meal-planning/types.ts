@@ -19,10 +19,16 @@ export interface RecipeStep {
   text: string;
 }
 
+export interface RecipeImage {
+  url: string;
+  alt?: string;
+}
+
 export interface Recipe {
   id: string;
   title: string;
   description?: string;
+  image?: RecipeImage;
   source?: {
     type: 'web' | 'manual' | 'imported' | 'shared' | 'generated' | 'ai_generated';
     label?: string;
