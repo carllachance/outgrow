@@ -52,16 +52,15 @@ export const GrowthScreen = () => {
         ))}
       </Card>
       <Card title="Behavioral insights">
-        <p className="muted">Sorted by your goal and linked to observed days. {growthIntentSupportLine(growthIntentInput)}</p>
+        <p className="muted">Linked to observed days and ordered to stay relevant to your anchor. {growthIntentSupportLine(growthIntentInput)}</p>
         <div className="stack compact">
-          {rankedInsights.map(({ insight, alignment }) => {
+          {rankedInsights.map(({ insight }) => {
             const count = supportLinks.filter((link) => link.insightId === insight.id).length;
             return (
               <article key={insight.id} className="insight-card">
                 <h3>{insight.title}</h3>
                 <p>{insight.statement}</p>
                 <p className="muted">Supporting days: {count}</p>
-                <p className="muted">Alignment with anchor: {Math.round(alignment * 100)}%</p>
                 <div className="inline-actions">
                   <Link className="button-link" to={`/insights/${insight.id}`}>Open insight</Link>
                   <Link className="button-link" to={`/insights/${insight.id}/days`}>View days</Link>

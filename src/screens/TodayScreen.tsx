@@ -14,6 +14,12 @@ type StretchGoal = {
   support?: string;
 };
 
+type ContextChip = {
+  id: string;
+  label: string;
+  icon: string;
+};
+
 export const TodayScreen = () => {
   const { state, addJournalEntry, addReturnMoment, saveTodaySuccess } = useStore();
   const MIN_HISTORY_FOR_PATTERN_COPY = 6;
@@ -63,12 +69,12 @@ export const TodayScreen = () => {
   const modeLine = !shouldRenderGuidance
     ? ''
     : mode === 'reflection_aware'
-      ? 'Editorial note from recent behavior: steady meal timing keeps your day smoother.'
+      ? 'From your recent notes: steady meals tend to keep your day smoother.'
       : hasExplicitIntent
-        ? 'Editorial note from your plan direction.'
+        ? 'Keep today tied to your longer plan with one concrete step.'
         : recentWin
           ? 'You already left yourself a useful cue. Keep this next step specific.'
-          : 'Quick editorial guidance can help you choose one grounded next move.';
+          : 'Pick one grounded next move you can actually do today.';
 
   const suggestionChips = useMemo(() => {
     const intentBasedNextStep = todayNextStepFromStatedIntent(growthIntentInput);
@@ -88,6 +94,21 @@ export const TodayScreen = () => {
     if (tone === 'teach') return suggestions;
     return suggestions.slice(0, 4);
   }, [growthIntentInput, hasExplicitIntent, hasPatternHistory, hasTimelyContext, recentJournalTheme, recentWin, shouldRenderGuidance, timeOfDayHint, tone]);
+
+
+  const contextChips: ContextChip[] = [
+    { id: 'low-energy', icon: '◐', label: 'Low energy' },
+    { id: 'steady', icon: '●', label: 'Steady' },
+    { id: 'stretched', icon: '△', label: 'Stretched' },
+    { id: 'need-support', icon: '♡', label: 'Need support' },
+  ];
+  const [selectedContextIds, setSelectedContextIds] = useState<string[]>([]);
+
+  const toggleContext = (id: string) => {
+    setSelectedContextIds((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  };
 
   const stretchGoals = useMemo<StretchGoal[]>(
     () => [
@@ -185,7 +206,7 @@ export const TodayScreen = () => {
 
       <section className="atmospheric-panel today-primary" aria-labelledby="today-success-title">
         <p className="panel-kicker">Today</p>
-        <h2 id="today-success-title" className="panel-title">Today, success looks like…</h2>
+        <h2 id="today-success-title" className="panel-title">What needs to happen today?</h2>
         {shouldRenderGuidance && modeLine ? <p className="panel-copy panel-copy-support">{modeLine}</p> : null}
         {!isEditingTodaySuccess ? (
           <div className="today-intention-card">
@@ -230,6 +251,28 @@ export const TodayScreen = () => {
               autoFocus
             />
 
+            <div className="today-context" aria-label="Optional context">
+              <p className="today-context-label">Optional context</p>
+              <div className="chip-row" role="list">
+                {contextChips.map((chip) => {
+                  const isSelected = selectedContextIds.includes(chip.id);
+                  return (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      className={`chip-button context-chip${isSelected ? ' selected' : ''}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => toggleContext(chip.id)}
+                      aria-pressed={isSelected}
+                    >
+                      <span aria-hidden="true">{chip.icon}</span>
+                      <span>{chip.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {suggestionChips.length ? (
               <div className="chip-row" aria-label="Intention suggestions">
                 {suggestionChips.map((suggestion) => (
@@ -271,8 +314,9 @@ export const TodayScreen = () => {
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>
 
-      <section className="chapter today-stretch" aria-label="Editorial guidance">
-        <p className="panel-kicker">Editorial guidance</p>
+      <section className="chapter today-stretch" aria-label="Optional support">
+        <p className="panel-kicker">Optional support</p>
+        <h3 className="today-support-title">If you want extra support</h3>
         <div className="stretch-list" role="list" aria-label="Optional support actions">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;

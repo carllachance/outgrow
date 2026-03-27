@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
 import { Link, useLocation } from 'react-router-dom';
@@ -18,7 +18,8 @@ export const JournalScreen = () => {
   const [change, setChange] = useState('');
   const [adapt, setAdapt] = useState('');
   const [integrityMessage, setIntegrityMessage] = useState('');
-  const recentDays = buildDayContexts(state).slice(0, 5);
+  const [selectedContext, setSelectedContext] = useState<string[]>([]);
+  const recentDays = buildDayContexts(state).slice(0, 6);
   const anchor = growthIntentAnchor(state.onboarding);
 
   const submitEntry = (event: FormEvent) => {
@@ -28,6 +29,7 @@ export const JournalScreen = () => {
     setIntegrityMessage(integrityMessageFromStore);
     if (!integrityMessageFromStore.includes('not punishment')) {
       setEntry('');
+      setSelectedContext([]);
     }
   };
 
@@ -40,35 +42,84 @@ export const JournalScreen = () => {
     setAdapt('');
   };
 
+  const entryPlaceholder = useMemo(() => {
+    if (selectedContext.includes('overloaded')) return 'Name one thing that felt heavy and one thing you can make easier.';
+    if (selectedContext.includes('low-energy')) return 'What is one minimum useful step you can still take today?';
+    if (selectedContext.includes('steady')) return 'What is working that you want to repeat tomorrow?';
+    return "Write what happened, what mattered, or one next step.";
+  }, [selectedContext]);
+
+  const toggleContext = (id: string) => {
+    setSelectedContext((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  };
+
   return (
-    <div className="screen">
-      <h1>Journal</h1>
-      <p className="muted">A place to reflect honestly.</p>
+    <div className="screen journal-screen">
+      <section className="journal-header" aria-labelledby="journal-title">
+        <h1 id="journal-title">Journal</h1>
+        <p className="muted">Capture today clearly so tomorrow is easier.</p>
+      </section>
+
       {query.get('focus') === 'today-plan' ? (
-        <Card title="Today's journal plan">
+        <Card title="Today’s saved plan">
           {focusedPlan ? (
-            <>
-            <p className="muted">Saved from Today.</p>
-              <p>{focusedPlan.content.replace(focusedPlanPrefix, '').trim()}</p>
-            </>
+            <p className="journal-plan-copy">{focusedPlan.content.replace(focusedPlanPrefix, '').trim()}</p>
           ) : (
             <p className="muted">No plan saved for this date yet.</p>
           )}
         </Card>
       ) : null}
-      <Card title="Freeform journaling">
-        <p className="muted">Try: Write what&apos;s on your mind, what helped, or one win.</p>
-        <form onSubmit={submitEntry}>
-          <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="Write what's on your mind." />
-          <button type="submit">Save reflection</button>
+
+      <Card title="What happened today?">
+        <form onSubmit={submitEntry} className="stack">
+          <div className="journal-context">
+            <p className="journal-context-label">Optional context</p>
+            <div className="chip-row" role="list" aria-label="Optional context">
+              {[
+                { id: 'low-energy', icon: '◐', label: 'Low energy' },
+                { id: 'steady', icon: '●', label: 'Steady' },
+                { id: 'overloaded', icon: '△', label: 'Overloaded' }
+              ].map((chip) => {
+                const isSelected = selectedContext.includes(chip.id);
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    className={`chip-button context-chip${isSelected ? ' selected' : ''}`}
+                    onClick={() => toggleContext(chip.id)}
+                    aria-pressed={isSelected}
+                  >
+                    <span aria-hidden="true">{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <textarea value={entry} onChange={(e) => setEntry(e.target.value)} placeholder={entryPlaceholder} />
+          <button type="submit" className="primary-cta">Save entry</button>
         </form>
-        {integrityMessage ? <p>{integrityMessage}</p> : null}
+        {integrityMessage ? <p className="panel-copy panel-copy-support">{integrityMessage}</p> : null}
       </Card>
-      <Card title="Weekly reflection">
+
+      <Card title="Recent entries">
+        {!state.safety.flags.progress_visible ? <p>Past entries are hidden while safety mode is active.</p> : recentDays.length === 0 ? <p>No days logged yet. Your next entry will appear here.</p> : recentDays.map((day) => (
+          <Link key={day.dayId} to={`/days/${day.dayId}?source=recent-days`} className="history-card-link">
+            <span className="history-card-date">{new Date(`${day.dayId}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+            <span className="history-card-title">Daily notes</span>
+            <span className="history-card-preview">{day.preview}</span>
+            <span className="history-card-chevron" aria-hidden="true">›</span>
+          </Link>
+        ))}
+      </Card>
+
+      <Card title="Weekly review">
+        <p className="muted">Anchor: {anchor}</p>
         <div className="inline-actions" style={{ marginBottom: '10px' }}>
-          <Link className="button-link" to="/journal/reflections">View reflection history</Link>
+          <Link className="button-link" to="/journal/reflections">Open reflection archive</Link>
         </div>
-        <p className="muted">Your goal: {anchor}</p>
         <form onSubmit={submitReflection} className="stack compact">
           <textarea value={worked} onChange={(e) => setWorked(e.target.value)} placeholder="What worked this week?" />
           <textarea value={didntHold} onChange={(e) => setDidntHold(e.target.value)} placeholder="What got in the way?" />
@@ -76,15 +127,6 @@ export const JournalScreen = () => {
           <textarea value={adapt} onChange={(e) => setAdapt(e.target.value)} placeholder="How can you make next week easier?" />
           <button type="submit">Save weekly reflection</button>
         </form>
-      </Card>
-      <Card title="Recent days">
-        {!state.safety.flags.progress_visible ? <p>Past entries are hidden while safety mode is active.</p> : recentDays.length === 0 ? <p>No days logged yet. Your next entry will appear here.</p> : recentDays.map((day) => (
-          <Link key={day.dayId} to={`/days/${day.dayId}?source=recent-days`} className="day-row-link">
-            <span className="day-row-date">{new Date(`${day.dayId}T12:00:00`).toLocaleDateString()}</span>
-            <span className="day-row-preview">{day.preview}</span>
-            <span className="day-row-chevron" aria-hidden="true">›</span>
-          </Link>
-        ))}
       </Card>
     </div>
   );
