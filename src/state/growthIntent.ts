@@ -104,11 +104,11 @@ export const buildRecommendationPrompt = (userPrompt: string, onboarding: Onboar
   const context = buildGrowthRecommendationContext(onboarding);
   return [
     userPrompt.trim(),
-    context.longHorizon ? `Growth direction: ${context.longHorizon}` : '',
-    context.optionalNarrative ? `Current friction: ${context.optionalNarrative}` : '',
-    `Support style: ${context.supportTier}`,
-    context.currentFocus ? `Practical focus: ${context.currentFocus}` : '',
-    context.weeklyLens ? `This week: ${context.weeklyLens}` : ''
+    context.longHorizon ? `Keep this aligned with: ${context.longHorizon}` : '',
+    context.optionalNarrative ? `Make it easier when: ${context.optionalNarrative}` : '',
+    `Support preference: ${context.supportTier}`,
+    context.currentFocus ? `Keep it practical for: ${context.currentFocus}` : '',
+    context.weeklyLens ? `This week to support: ${context.weeklyLens}` : ''
   ].filter(Boolean).join('\n');
 };
 

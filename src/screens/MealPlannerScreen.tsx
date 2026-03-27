@@ -11,8 +11,6 @@ import { useAppStore } from '../state/useAppStore';
 import {
   buildGrowthIntentNarrative,
   buildRecommendationPrompt,
-  explainGrowthAlignedSuggestion,
-  growthIntentAnchor,
   supportTone
 } from '../state/growthIntent';
 
@@ -133,8 +131,6 @@ export const MealPlannerScreen = () => {
     return createRecipeSuggestionContext(prompt, starterMemory);
   });
   const weeklySuccessText = buildGrowthIntentNarrative(state.onboarding);
-  const anchorLine = growthIntentAnchor(state.onboarding);
-  const suggestionExplanation = explainGrowthAlignedSuggestion(state.onboarding);
   const supportStyle = supportTone(state.onboarding);
   const foodRules = state.foodRules;
   const supportAwareQuickPrompts = supportStyle === 'simple'
@@ -204,23 +200,25 @@ export const MealPlannerScreen = () => {
     setRecipe(savedDraft);
     setServings(savedDraft.servingsDefault || servings);
 
-    const steeringNote = suggested.context.lastSteeringSignals?.[0] ? ` ${suggested.context.lastSteeringSignals[0]}` : '';
+    const steeringNote = suggested.context.lastSteeringSignals?.[0]
+      ? ` Why this fits: ${suggested.context.lastSteeringSignals[0].replace(/\.$/, '')}.`
+      : '';
     setShowRejectionReasons(true);
     setSelectedRejectionReasons([]);
 
     if (feedback === 'not_for_me') {
-      const toneLine = supportStyle === 'simple' ? 'Kept simple.' : 'One small stretch only.';
-      setActionMessage(`Got it. Here’s a new draft: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
+      const toneLine = supportStyle === 'simple' ? 'Kept simple for tonight.' : 'Kept it manageable for tonight.';
+      setActionMessage(`Got it — here’s another option: ${savedDraft.title}. ${toneLine}${steeringNote}`);
       return;
     }
 
     if (feedback === 'more_like_this') {
-      const toneLine = supportStyle === 'teach' ? 'Kept repeatable structure.' : 'Kept close to what already works.';
-      setActionMessage(`Great. Here’s one closer to what you liked: ${savedDraft.title}.${steeringNote} ${toneLine} ${suggestionExplanation}`);
+      const toneLine = supportStyle === 'teach' ? 'Kept a repeatable structure.' : 'Kept close to what already works.';
+      setActionMessage(`Great — here’s one closer to what you liked: ${savedDraft.title}. ${toneLine}${steeringNote}`);
       return;
     }
 
-    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} ${suggestionExplanation} Goal: ${anchorLine}`);
+    setActionMessage(`Draft ready: ${savedDraft.title}. Based on what you asked for.${steeringNote}`);
   };
 
   const handleKeepRecipe = () => {
@@ -308,7 +306,7 @@ export const MealPlannerScreen = () => {
       mealType: 'dinner',
       servings,
       shoppingMode: 'include_missing_only',
-      notes: 'Use tonight from AI planner',
+      notes: 'Use tonight from meal planner',
       nowIso
     });
 
@@ -393,8 +391,11 @@ export const MealPlannerScreen = () => {
       ? `Planned on ${plannedDateForRecipe}. Day is selected below.`
       : 'This recipe is in your plan. Use the date picker below to update it.');
   };
-  const shortRationale = (suggestionContext.lastSteeringSignals?.[0] || recipe.description || 'A balanced option for tonight.')
+  const shortRationale = (suggestionContext.lastSteeringSignals?.[0] || recipe.description || 'Simple and satisfying for tonight.')
     .replace(/\.$/, '');
+  const displayRationale = shortRationale.toLowerCase().startsWith('why this fits')
+    ? shortRationale
+    : `Why this fits: ${shortRationale}`;
   const summaryBadges = [
     recipe.status === 'saved' ? 'Saved' : 'Draft',
     isCurrentRecipePlanned
@@ -451,7 +452,7 @@ export const MealPlannerScreen = () => {
           </div>
           <div className="planner-recipe-header-copy">
             <h3 className="planner-recipe-title serif">{recipe.title}</h3>
-            <p className="planner-rationale-line">{shortRationale}</p>
+            <p className="planner-rationale-line">{displayRationale}</p>
             <p className="planner-recipe-meta-inline">{compactMeta}</p>
             <div className="planner-info-badges planner-info-badges-compact" aria-label="Recipe status summary">
               {summaryBadges.slice(0, 2).map((badge) => (
@@ -468,12 +469,12 @@ export const MealPlannerScreen = () => {
               {recipe.status === 'saved' ? 'Move to draft' : 'Save recipe'}
             </button>
             <button type="button" onClick={handleOpenPlannedContext}>
-              {isCurrentRecipePlanned ? 'Open planned day' : 'Plan status'}
+              {isCurrentRecipePlanned ? 'View planned day' : 'Set a day'}
             </button>
           </div>
         </div>
         <div className="planner-recipe-scroll-content">
-          <p className="planner-recipe-description">{recipe.description}</p>
+          {recipe.description ? <p className="planner-recipe-description">{recipe.description}</p> : null}
         <div className="planner-ingredients-card">
           <p className="planner-ingredients-label">Ingredients on hand</p>
           <div className="planner-inline-chips">

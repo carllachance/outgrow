@@ -451,7 +451,7 @@ const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[
 
 const buildRecipeFromProfile = (
   profile: RecipeCandidateProfile,
-  prompt: string,
+  _prompt: string,
   nowIso: string,
   options?: { foodRules?: FoodRules; blockedTokens?: string[] }
 ): Recipe => {
@@ -476,10 +476,19 @@ const buildRecipeFromProfile = (
     return true;
   });
 
+  const fitTags = arrayUnique([
+    profile.quickTag === 'quick' ? 'Quick' : 'Steady pace',
+    profile.styleTag === 'high-protein' ? 'High-protein' : null,
+    profile.method === 'Sheet Pan' ? 'Low cleanup' : null,
+    profile.method === 'One Pot' ? 'One-pot friendly' : null,
+    profile.comfort ? 'Comforting' : 'Light and fresh',
+    'Weeknight-friendly'
+  ].filter((tag): tag is string => Boolean(tag))).slice(0, 3);
+
   return {
     id: `recipe-${crypto.randomUUID()}`,
     title: projectedRecipeTitle(profile),
-    description: `AI suggestion based on: "${prompt.trim()}"`,
+    description: fitTags.join(', '),
     source: { type: 'ai_generated', label: 'Outgrow AI planner' },
     status: 'draft',
     version: 1,
