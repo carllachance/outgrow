@@ -356,6 +356,26 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   line-height: 1.45;
 }
 
+.planner-state-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.planner-state-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  background: rgba(230, 225, 216, 0.7);
+  color: #667066;
+  font-weight: 600;
+}
+
+.planner-state-badge-active {
+  background: #d6e6d7;
+  color: #32533d;
+}
+
 .planner-ingredients-card {
   background: rgba(255, 255, 255, 0.6);
   border-radius: 18px;
@@ -434,6 +454,39 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   display: grid;
   gap: 8px;
   color: #2f4034;
+}
+
+.planner-shortlist-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.planner-shortlist-row {
+  border: 1px solid rgba(176, 166, 144, 0.3);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.planner-shortlist-title {
+  margin: 0;
+  font-weight: 700;
+  color: #2d4332;
+}
+
+.planner-shortlist-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.planner-shortlist-controls button {
+  margin-top: 0;
 }
 
 .tab {

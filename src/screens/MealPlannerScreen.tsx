@@ -73,6 +73,15 @@ interface StarterSuggestionMemory {
   recentInitialClusterSignatures: string[];
 }
 
+interface WeeklyShortlistCandidate {
+  id: string;
+  recipeId: string;
+  recipeTitle: string;
+  recipeVersion: number;
+  servings: number;
+  addedAt: string;
+}
+
 const readStarterSuggestionMemory = (): StarterSuggestionMemory => {
   if (typeof window === 'undefined') {
     return { recentInitialSuggestionSignatures: [], recentInitialClusterSignatures: [] };
@@ -104,6 +113,9 @@ export const MealPlannerScreen = () => {
   const [planDate, setPlanDate] = useState('2026-03-27');
   const [servings, setServings] = useState(2);
   const [pantryItems, setPantryItems] = useState<PantryItem[]>(defaultPantry);
+  const [weeklyShortlist, setWeeklyShortlist] = useState<WeeklyShortlistCandidate[]>([]);
+  const [shortlistAssignmentById, setShortlistAssignmentById] = useState<Record<string, string>>({});
+  const [plannedRecipeIds, setPlannedRecipeIds] = useState<string[]>([]);
   const [actionMessage, setActionMessage] = useState('');
   const [showRejectionReasons, setShowRejectionReasons] = useState(true);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
@@ -180,7 +192,7 @@ export const MealPlannerScreen = () => {
       return;
     }
 
-    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} You can keep iterating, add it to plan, shop, or keep it in recipes.`);
+    setActionMessage(`Draft ready: ${savedDraft.title}.${steeringNote} You can keep iterating, shortlist it, shop, or keep it in recipes.`);
   };
 
   const handleKeepRecipe = () => {
@@ -198,17 +210,26 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Recipe kept in your library as v${next.version}.`);
   };
 
-  const handleAddToPlan = () => {
-    const plan = service.addToPlan({
-      id: `meal-${crypto.randomUUID()}`,
+  const handleShortlistRecipe = () => {
+    const existing = weeklyShortlist.find((candidate) => candidate.recipeId === recipe.id);
+    if (existing) {
+      setActionMessage(`${recipe.title} is already in this week’s shortlist.`);
+      return;
+    }
+
+    const candidate: WeeklyShortlistCandidate = {
+      id: `shortlist-${crypto.randomUUID()}`,
       recipeId: recipe.id,
-      date: planDate,
-      mealType: 'dinner',
+      recipeTitle: recipe.title,
+      recipeVersion: recipe.version,
       servings,
-      shoppingMode: 'include_missing_only',
-      nowIso
-    });
-    setActionMessage(`Added to plan for ${plan.date} (${plan.mealType}).`);
+      addedAt: nowIso
+    };
+
+    const defaultAssignmentDate = planDate || todayDate;
+    setWeeklyShortlist((current) => [...current, candidate]);
+    setShortlistAssignmentById((current) => ({ ...current, [candidate.id]: defaultAssignmentDate }));
+    setActionMessage(`Shortlisted for this week: ${recipe.title}. Assign a day when you’re ready.`);
   };
 
   const handleUseTonight = () => {
@@ -224,7 +245,42 @@ export const MealPlannerScreen = () => {
     });
 
     setPlanDate(todayDate);
+    setPlannedRecipeIds((current) => (current.includes(recipe.id) ? current : [...current, recipe.id]));
     setActionMessage(`Tonight is set: ${tonightMeal.sourceSnapshot.recipeTitle} added for ${todayDate}.`);
+  };
+
+  const handleAssignShortlistedMeal = (candidate: WeeklyShortlistCandidate) => {
+    const assignedDate = shortlistAssignmentById[candidate.id] || planDate || todayDate;
+    const plan = service.addToPlan({
+      id: `meal-${crypto.randomUUID()}`,
+      recipeId: candidate.recipeId,
+      date: assignedDate,
+      mealType: 'dinner',
+      servings: candidate.servings,
+      shoppingMode: 'include_missing_only',
+      notes: 'Planned from weekly shortlist',
+      nowIso
+    });
+
+    setWeeklyShortlist((current) => current.filter((item) => item.id !== candidate.id));
+    setShortlistAssignmentById((current) => {
+      const next = { ...current };
+      delete next[candidate.id];
+      return next;
+    });
+    setPlanDate(plan.date);
+    setPlannedRecipeIds((current) => (current.includes(candidate.recipeId) ? current : [...current, candidate.recipeId]));
+    setActionMessage(`Planned from shortlist: ${candidate.recipeTitle} on ${plan.date}.`);
+  };
+
+  const handleRemoveShortlistedMeal = (candidateId: string) => {
+    setWeeklyShortlist((current) => current.filter((item) => item.id !== candidateId));
+    setShortlistAssignmentById((current) => {
+      const next = { ...current };
+      delete next[candidateId];
+      return next;
+    });
+    setActionMessage('Removed from this week’s shortlist.');
   };
 
   const handleRecalculateShopping = () => {
@@ -244,6 +300,22 @@ export const MealPlannerScreen = () => {
   const imageUrl = recipe.image?.url?.trim();
   const hasRecipeImage = Boolean(imageUrl);
   const imageAlt = recipe.image?.alt?.trim() || `${recipe.title} photo`;
+  const weekDates = useMemo(() => {
+    const start = new Date('2026-03-27T00:00:00.000Z');
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + index);
+      return date.toISOString().slice(0, 10);
+    });
+  }, []);
+  const isCurrentRecipeShortlisted = weeklyShortlist.some((candidate) => candidate.recipeId === recipe.id);
+  const isCurrentRecipePlanned = plannedRecipeIds.includes(recipe.id);
+  const stateBadges = [
+    { label: 'generated draft', active: recipe.status === 'draft' },
+    { label: 'shortlisted weekly candidate', active: isCurrentRecipeShortlisted },
+    { label: 'planned/scheduled meal', active: isCurrentRecipePlanned },
+    { label: 'saved recipe', active: recipe.status === 'saved' }
+  ];
 
   return (
     <section className="screen meal-planner-screen">
@@ -290,6 +362,13 @@ export const MealPlannerScreen = () => {
         <h3 className="planner-recipe-title serif">{recipe.title}</h3>
         <p className="planner-recipe-description">{recipe.description}</p>
         <p className="planner-source-note">Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
+        <div className="planner-state-badges" aria-label="Recipe planning states">
+          {stateBadges.map((badge) => (
+            <span key={badge.label} className={`planner-state-badge ${badge.active ? 'planner-state-badge-active' : ''}`}>
+              {badge.active ? `✓ ${badge.label}` : badge.label}
+            </span>
+          ))}
+        </div>
         <div className="planner-ingredients-card">
           <p className="planner-ingredients-label">Ingredients on hand</p>
           <div className="planner-inline-chips">
@@ -303,7 +382,9 @@ export const MealPlannerScreen = () => {
         </div>
         <div className="planner-primary-actions">
           <button type="button" onClick={handleUseTonight} className="planner-cta-main">Use tonight</button>
-          <button type="button" onClick={handleAddToPlan} className="planner-cta-secondary">Add to plan</button>
+          <button type="button" onClick={handleShortlistRecipe} className="planner-cta-secondary">
+            {isCurrentRecipeShortlisted ? 'Shortlisted' : 'Shortlist'}
+          </button>
         </div>
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
@@ -345,10 +426,6 @@ export const MealPlannerScreen = () => {
           </div>
         ) : null}
         <label>
-          Plan date
-          <input type="date" value={planDate} onChange={(event) => setPlanDate(event.target.value)} />
-        </label>
-        <label>
           Servings
           <input type="number" min={1} value={servings} onChange={(event) => setServings(Number(event.target.value || 1))} />
         </label>
@@ -360,6 +437,37 @@ export const MealPlannerScreen = () => {
         </div>
         {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
       </article>
+
+      <Card title="This week’s shortlist">
+        <p className="muted">Collect 3–5 candidates first, then assign each one to a day when you’re ready.</p>
+        {!weeklyShortlist.length ? (
+          <p className="muted">No shortlisted recipes yet. Use “Shortlist” on any draft you want to consider this week.</p>
+        ) : (
+          <ul className="planner-shortlist-list">
+            {weeklyShortlist.map((candidate) => (
+              <li key={candidate.id} className="planner-shortlist-row">
+                <div>
+                  <p className="planner-shortlist-title">{candidate.recipeTitle}</p>
+                  <p className="muted">v{candidate.recipeVersion} • {candidate.servings} servings • unscheduled</p>
+                </div>
+                <div className="planner-shortlist-controls">
+                  <select
+                    aria-label={`Assign ${candidate.recipeTitle} to day`}
+                    value={shortlistAssignmentById[candidate.id] || planDate}
+                    onChange={(event) => setShortlistAssignmentById((current) => ({ ...current, [candidate.id]: event.target.value }))}
+                  >
+                    {weekDates.map((day) => (
+                      <option key={day} value={day}>{day}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => handleAssignShortlistedMeal(candidate)}>Assign to day</button>
+                  <button type="button" onClick={() => handleRemoveShortlistedMeal(candidate.id)}>Remove</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card title="Your Kitchen Rules">
         <label>
@@ -425,7 +533,7 @@ export const MealPlannerScreen = () => {
 
       <Card title="Curator’s Note">
         {!lastShoppingExplanation.length ? (
-          <p className="muted">Use “Refresh shopping” after adding a meal to update explainable shopping output.</p>
+          <p className="muted">Use “Refresh shopping” after assigning a shortlisted meal (or using tonight) to update explainable shopping output.</p>
         ) : (
           <ul className="explanation-list">
             {lastShoppingExplanation.map((line) => <li key={line}>{line}</li>)}
