@@ -59,12 +59,12 @@ export const TodayScreen = () => {
   const modeLine = !shouldRenderGuidance
     ? ''
     : mode === 'reflection_aware'
-      ? 'Recent check-ins suggest steady meals help your rhythm.'
+      ? 'Editorial note from recent behavior: steady meal timing keeps your day smoother.'
       : hasExplicitIntent
-        ? 'Based on the direction you set.'
+        ? 'Editorial note from your plan direction.'
         : recentWin
-          ? 'You already left yourself a helpful cue. Keep this next step small.'
-          : 'A quick check-in can help you pick one useful next move.';
+          ? 'You already left yourself a useful cue. Keep this next step specific.'
+          : 'Quick editorial guidance can help you choose one grounded next move.';
 
   const suggestionChips = useMemo(() => {
     const intentBasedNextStep = todayNextStepFromStatedIntent(state.onboarding);
@@ -73,8 +73,8 @@ export const TodayScreen = () => {
       tone === 'simple'
         ? (intentBasedNextStep ?? '')
         : (intentBasedNextStep ?? ''),
-      hasPatternHistory ? 'A steady meal may help more than snacking tonight.' : '',
-      hasTimelyContext && hasExplicitIntent ? `Keep one promise to myself ${timeOfDayHint}.` : '',
+      hasPatternHistory ? 'Planning one real meal now will likely land better than grazing later.' : '',
+      hasTimelyContext && hasExplicitIntent ? `Keep one planned promise ${timeOfDayHint}.` : '',
       recentWin ? `Build on yesterday: ${recentWin.slice(0, 46)}${recentWin.length > 46 ? '…' : ''}` : '',
       recentJournalTheme
         ? `Finish one doable step from: ${recentJournalTheme.slice(0, 40)}${recentJournalTheme.length > 40 ? '…' : ''}`
@@ -267,8 +267,8 @@ export const TodayScreen = () => {
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
       </section>
 
-      <section className="chapter today-stretch" aria-label="If it helps">
-        <p className="panel-kicker">If it helps</p>
+      <section className="chapter today-stretch" aria-label="Editorial guidance">
+        <p className="panel-kicker">Editorial guidance</p>
         <div className="stretch-list" role="list" aria-label="Optional support actions">
           {stretchGoals.map((goal) => {
             const isExpanded = expandedStretchId === goal.id;

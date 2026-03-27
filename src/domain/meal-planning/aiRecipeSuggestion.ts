@@ -8,6 +8,7 @@ import type {
   RecipeIngredient,
   RecipeSuggestionSessionContext
 } from './types.js';
+import { buildGeneratedFoodImage } from './recipeImagery.js';
 
 const titleCase = (value: string): string => value.split(' ').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
 
@@ -489,6 +490,7 @@ const buildRecipeFromProfile = (
     id: `recipe-${crypto.randomUUID()}`,
     title: projectedRecipeTitle(profile),
     description: fitTags.join(', '),
+    image: buildGeneratedFoodImage(_prompt, projectedRecipeTitle(profile)),
     source: { type: 'ai_generated', label: 'Outgrow AI planner' },
     status: 'draft',
     version: 1,

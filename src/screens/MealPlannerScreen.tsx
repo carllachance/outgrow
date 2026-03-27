@@ -7,6 +7,7 @@ import {
 } from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe, RecipeFeedbackReason } from '../domain/meal-planning/types';
+import { buildGeneratedFoodImage } from '../domain/meal-planning/recipeImagery';
 import { useAppStore } from '../state/useAppStore';
 import {
   buildGrowthIntentNarrative,
@@ -19,13 +20,10 @@ const todayDate = '2026-03-26';
 
 const starterRecipe: Recipe = {
   id: 'recipe-weeknight-sheet-pan',
-  title: 'Sheet Pan Chicken & Veg',
-  description: 'Fast cleanup dinner for low-energy weeknights.',
-  image: {
-    url: 'https://images.unsplash.com/photo-1604909053196-1de3f9f6f72b?auto=format&fit=crop&w=1200&q=80',
-    alt: 'Roasted sheet pan chicken with vegetables'
-  },
-  source: { type: 'manual', label: 'Outgrow test kitchen' },
+  title: 'Citrus Sheet Pan Chicken',
+  description: 'Bright and calm: one tray, one dressing, and reliable leftovers for tomorrow.',
+  image: buildGeneratedFoodImage('citrus sheet pan chicken with vegetables', 'Citrus Sheet Pan Chicken'),
+  source: { type: 'ai_generated', label: 'Outgrow editorial kitchen' },
   status: 'saved',
   version: 1,
   servingsDefault: 2,
@@ -55,9 +53,9 @@ const defaultPantry = [
 ] satisfies PantryItem[];
 
 const quickPrompts = [
-  'High-protein dinner that is quick for a weeknight',
-  'Vegetarian pantry dinner in 30 minutes',
-  'Comforting but light dinner with leftovers'
+  'I need a quick dinner I can repeat on busy nights',
+  'Build a vegetarian dinner from pantry basics in 30 minutes',
+  'Give me a calm, comforting dinner with next-day leftovers'
 ];
 
 const rejectionReasons: Array<{ id: RecipeFeedbackReason; label: string }> = [
@@ -417,13 +415,13 @@ export const MealPlannerScreen = () => {
       </header>
 
       <section className="planner-intro">
-        <h2 className="planner-title">What do you need tonight?</h2>
+        <h2 className="planner-title">Plan one good meal.</h2>
         <p className="planner-subtitle">
           {supportStyle === 'teach'
-            ? 'Let&apos;s find something nourishing you can repeat.'
+            ? 'Context-aware editorial guidance, tuned to what actually works for you.'
             : supportStyle === 'simple'
-              ? 'Let&apos;s keep this low-effort and steady.'
-              : 'Let&apos;s find something nourishing.'}
+              ? 'A calm recommendation built for tonight&apos;s real constraints.'
+              : 'One thoughtful suggestion grounded in your pantry, time, and week.'}
         </p>
         <div className="planner-prompt-wrap">
           <textarea
@@ -431,7 +429,7 @@ export const MealPlannerScreen = () => {
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
             className="planner-prompt-input"
-            placeholder="I have salmon and spinach..."
+            placeholder="Example: 25 minutes, low cleanup, and enough for tomorrow lunch."
             aria-label="Tell the chef what you need"
           />
           <button type="button" onClick={() => handleSuggestRecipe('neutral')} className="planner-sparkle-button" aria-label="Suggest recipe">
@@ -486,7 +484,7 @@ export const MealPlannerScreen = () => {
             ))}
           </div>
         </div>
-        <p className="planner-source-note">Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
+        <p className="planner-source-note">Visual: AI-generated • Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
           <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
@@ -499,7 +497,7 @@ export const MealPlannerScreen = () => {
         </div>
         {showRejectionReasons ? (
           <div className="stack compact">
-            <p className="muted">What should we avoid next time?</p>
+            <p className="muted">Editorial notes for the next recommendation:</p>
             <div className="planner-chip-row">
               {rejectionReasons.map((reason) => {
                 const isSelected = selectedRejectionReasons.includes(reason.id);

@@ -4,9 +4,9 @@ import { WelcomeHero } from '../components/brand/WelcomeHero';
 import { useStore } from '../state/AppStoreContext';
 
 const startingPointOptions = [
-  'Start with one grounded breakfast',
-  'Reduce dinner decision fatigue',
-  'Create one reliable fallback meal'
+  'Plan two dinners before busy days',
+  'Create one reliable fallback meal',
+  'Prep one repeatable breakfast'
 ];
 
 const supportStyleOptions = [
@@ -19,7 +19,7 @@ export const OnboardingScreen = () => {
   const { state, updateOnboarding, updateProfile } = useStore();
   const navigate = useNavigate();
   const activeStep = state.onboarding.activeStep;
-  const totalSteps = 4;
+  const totalSteps = 3;
 
   const goToStep = (step: 1 | 2 | 3 | 4) => {
     updateOnboarding({ activeStep: step });
@@ -27,7 +27,7 @@ export const OnboardingScreen = () => {
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
-    updateOnboarding({ hasCompleted: true, activeStep: 4 });
+    updateOnboarding({ hasCompleted: true, activeStep: 3 });
     navigate('/today');
   };
 
@@ -35,7 +35,7 @@ export const OnboardingScreen = () => {
     <div className="screen onboarding-screen">
       <WelcomeHero
         onPrimaryAction={() => goToStep(1)}
-        onSecondaryAction={() => goToStep(4)}
+        onSecondaryAction={() => goToStep(3)}
       />
       {activeStep > 1 ? (
         <div className="onboarding-progress" aria-live="polite">
@@ -45,9 +45,9 @@ export const OnboardingScreen = () => {
       <form onSubmit={onSubmit} className="stack">
         {activeStep === 1 ? (
           <section className="chapter" aria-labelledby="onboarding-step-one">
-          <p className="panel-kicker">Chapter one</p>
-          <h2 id="onboarding-step-one">I know I&apos;ve Outgrown this app when…</h2>
-          <p>This keeps your plan focused.</p>
+          <p className="panel-kicker">Step one</p>
+          <h2 id="onboarding-step-one">What does a calmer food week look like for you?</h2>
+          <p>One sentence is enough. We&apos;ll use this as your direction.</p>
           <textarea
             value={state.onboarding.longHorizon}
             onChange={(e) => updateOnboarding({ longHorizon: e.target.value })}
@@ -70,9 +70,9 @@ export const OnboardingScreen = () => {
 
         {activeStep === 2 ? (
           <section className="chapter" aria-labelledby="onboarding-friction-step">
-          <p className="panel-kicker">Chapter two</p>
-          <h2 id="onboarding-friction-step">What&apos;s the biggest friction right now?</h2>
-          <p>What keeps getting in the way?</p>
+          <p className="panel-kicker">Step two</p>
+          <h2 id="onboarding-friction-step">What usually makes meals harder than they need to be?</h2>
+          <p>Keep it practical: schedule, energy, shopping, or prep.</p>
           <textarea
             value={state.onboarding.optionalNarrative}
             onChange={(e) => updateOnboarding({ optionalNarrative: e.target.value })}
@@ -87,9 +87,9 @@ export const OnboardingScreen = () => {
 
         {activeStep === 3 ? (
           <section className="chapter" aria-labelledby="onboarding-support-style-step">
-          <p className="panel-kicker">Chapter three</p>
-          <h2 id="onboarding-support-style-step">What kind of support feels best?</h2>
-          <p>Choose how hands-on you want this to be.</p>
+          <p className="panel-kicker">Step three</p>
+          <h2 id="onboarding-support-style-step">Pick your support style and this week&apos;s starting move.</h2>
+          <p>Short, grounded, and built for real planning.</p>
           <div className="choices">
             {supportStyleOptions.map((option) => (
               <button
@@ -104,16 +104,8 @@ export const OnboardingScreen = () => {
           </div>
           <div className="inline-actions">
             <button type="button" onClick={() => goToStep(2)}>Back</button>
-            <button type="button" className="primary-cta" onClick={() => goToStep(4)}>Continue</button>
           </div>
-        </section>
-        ) : null}
-
-        {activeStep === 4 ? (
-          <section className="chapter" aria-labelledby="onboarding-focus-step">
-          <p className="panel-kicker">Chapter four</p>
-          <h2 id="onboarding-focus-step">What&apos;s the practical starting point this week?</h2>
-          <p>Pick one place to start.</p>
+          <h3 id="onboarding-focus-step">Practical starting point this week</h3>
           <div className="choices">
             {startingPointOptions.map((option) => (
               <button
@@ -129,9 +121,9 @@ export const OnboardingScreen = () => {
           <textarea
             value={state.onboarding.weeklyLens}
             onChange={(e) => updateOnboarding({ weeklyLens: e.target.value })}
-            placeholder="This week I’ll plan two easy dinners before my busiest days."
+            placeholder="This week I’ll plan two easy dinners before my busiest days and keep one fallback meal ready."
           />
-          <button type="button" onClick={() => goToStep(3)}>Back</button>
+          <button type="button" onClick={() => goToStep(2)}>Back</button>
           <button className="primary-cta" type="submit">
             Enter Today
           </button>
