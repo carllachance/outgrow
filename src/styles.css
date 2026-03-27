@@ -330,6 +330,15 @@ button { background: #e4dac8; color: #2b352f; font-weight: 600; }
   object-fit: cover;
 }
 
+.planner-image-fallback-copy {
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  color: #5b4a2d;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .planner-image-meta {
   position: absolute;
   left: 12px;
