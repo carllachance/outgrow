@@ -413,7 +413,9 @@ export const MealPlannerScreen = () => {
 
   const heroImage = selectRecipeHeroImage(recipe, heroImageFailed);
   const imageUrl = heroImage.image?.url?.trim();
-  const hasRecipeImage = Boolean(imageUrl);
+  const hasRecipeImage = heroImage.state === 'ready' && Boolean(imageUrl);
+  const isImageLoading = heroImage.state === 'loading';
+  const isImageFallback = heroImage.state === 'fallback' || !hasRecipeImage;
   const imageAlt = heroImage.image?.alt?.trim() || `${recipe.title} photo`;
   const weekDates = useMemo(() => {
     const start = new Date('2026-03-27T00:00:00.000Z');
@@ -451,7 +453,7 @@ export const MealPlannerScreen = () => {
         ? 'Shortlisted'
         : 'Not planned'
   ];
-  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Flexible time'} · ${servings} servings · ${heroImage.source === 'source_photo' ? 'Photo' : heroImage.source === 'ai_food_photo' ? 'AI food preview' : 'Preview fallback'}`;
+  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Flexible time'} · ${servings} servings`;
   const dynamicRejectionReasons = rejectionReasons.map((reason) => (
     reason.id === 'wrong_protein'
       ? { ...reason, label: `Avoid ${normalizedPrimaryProtein || 'this protein'}` }
@@ -502,10 +504,12 @@ export const MealPlannerScreen = () => {
           <div className={`planner-recipe-media planner-recipe-media-compact ${hasRecipeImage ? 'planner-recipe-media-with-image' : 'planner-recipe-media-no-image'}`}>
             {hasRecipeImage ? (
               <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} onError={() => setHeroImageFailed(true)} />
+            ) : isImageLoading ? (
+              <div className="planner-image-fallback-copy">Image on the way</div>
             ) : (
-              <div className="planner-image-fallback-copy">Preview unavailable</div>
+              <div className="planner-image-fallback-copy">Image unavailable for this recipe</div>
             )}
-            {heroImage.label ? (
+            {(isImageLoading || isImageFallback) && heroImage.label ? (
               <div className="planner-image-meta">
                 <span>{heroImage.label}</span>
               </div>
@@ -547,7 +551,7 @@ export const MealPlannerScreen = () => {
             ))}
           </div>
         </div>
-        <p className="planner-source-note">Visual: {heroImage.source === 'source_photo' ? 'Source photo' : heroImage.source === 'ai_food_photo' ? 'AI-generated realistic food' : 'Honest fallback tile'} • Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
+        <p className="planner-source-note">Recipe source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
           <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
