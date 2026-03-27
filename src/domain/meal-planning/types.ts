@@ -154,6 +154,7 @@ export interface RecipeSuggestionSessionContext {
   sessionRecentSuggestionSignatures: string[];
   sessionRecentTitleSignatures: string[];
   sessionRecentPatternSignatures: string[];
+  sessionCoverage: RecipeSuggestionCoverageSnapshot;
   rejectedSignatures: string[];
   positiveExampleSignatures: string[];
   preferredTokens: string[];
@@ -163,6 +164,16 @@ export interface RecipeSuggestionSessionContext {
   preferredRecipeIds: string[];
   feedbackEvents: RecipeFeedbackEvent[];
   lastSteeringSignals?: string[];
+}
+
+export interface RecipeSuggestionCoverageSnapshot {
+  proteinsShown: string[];
+  cuisinesShown: string[];
+  methodsShown: string[];
+  formatsShown: string[];
+  effortBucketsShown: string[];
+  richnessBucketsShown: string[];
+  patternSignaturesShown: string[];
 }
 
 export type RecipeFeedbackKind = 'prefer' | 'reject';

@@ -2,6 +2,7 @@ import { normalizeIngredientAlias } from './derivations.js';
 import type {
   FoodRules,
   Recipe,
+  RecipeSuggestionCoverageSnapshot,
   RecipeFeedbackEvent,
   RecipeFeedbackReason,
   RecipeIngredient,
@@ -69,6 +70,8 @@ interface CandidateScoreBreakdown {
   negativeFeedbackPenalty: number;
   standingOrderScore: number;
   weeklyLensScore: number;
+  diversityBonus: number;
+  semanticClusterPenalty: number;
   noveltyPenalty: number;
   rejectionPenalty: number;
   duplicatePenalty: number;
@@ -89,6 +92,16 @@ const arrayUnique = (values: string[]): string[] => Array.from(new Set(values));
 
 const promptSignature = (prompt: string): string => arrayUnique(tokenizePrompt(prompt)).sort().join('|');
 
+const createEmptyCoverageSnapshot = (): RecipeSuggestionCoverageSnapshot => ({
+  proteinsShown: [],
+  cuisinesShown: [],
+  methodsShown: [],
+  formatsShown: [],
+  effortBucketsShown: [],
+  richnessBucketsShown: [],
+  patternSignaturesShown: []
+});
+
 export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionContext => ({
   promptSignature: promptSignature(prompt),
   iterations: 0,
@@ -96,6 +109,7 @@ export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionC
   sessionRecentSuggestionSignatures: [],
   sessionRecentTitleSignatures: [],
   sessionRecentPatternSignatures: [],
+  sessionCoverage: createEmptyCoverageSnapshot(),
   rejectedSignatures: [],
   positiveExampleSignatures: [],
   preferredTokens: [],
@@ -200,14 +214,124 @@ const patternSignatureFromProfile = (profile: RecipeCandidateProfile): string =>
   [normalizeRuleToken(profile.protein), normalizeRuleToken(profile.method), profile.format].join('|')
 );
 
+const proteinFamily = (protein: string): string => {
+  const normalized = normalizeRuleToken(protein);
+  if (normalized.includes('chicken') || normalized.includes('turkey')) return 'poultry';
+  if (normalized.includes('beef')) return 'beef';
+  if (normalized.includes('pork')) return 'pork';
+  if (normalized.includes('salmon') || normalized.includes('fish') || normalized.includes('shrimp')) return 'seafood';
+  if (normalized.includes('tofu') || normalized.includes('tempeh')) return 'soy';
+  if (normalized.includes('lentil') || normalized.includes('bean') || normalized.includes('chickpea')) return 'legume';
+  if (normalized.includes('mushroom')) return 'fungi';
+  return normalized;
+};
+
+const cuisineFamily = (flavor: string): string => {
+  const normalized = normalizeRuleToken(flavor);
+  if (normalized.includes('miso') || normalized.includes('ginger')) return 'east_asian';
+  if (normalized.includes('harissa')) return 'north_african';
+  if (normalized.includes('chipotle') || normalized.includes('chili') || normalized.includes('lime')) return 'latin';
+  if (normalized.includes('parmesan') || normalized.includes('basil') || normalized.includes('tomato')) return 'mediterranean';
+  if (normalized.includes('dijon') || normalized.includes('herb') || normalized.includes('lemon') || normalized.includes('garlic')) return 'euro_herb';
+  return normalized;
+};
+
+const methodFamily = (method: string): string => {
+  const normalized = normalizeRuleToken(method);
+  if (normalized.includes('sheet_pan') || normalized.includes('roast')) return 'oven_roast';
+  if (normalized.includes('skillet') || normalized.includes('griddle') || normalized.includes('stir_fry')) return 'stovetop_sear';
+  if (normalized.includes('one_pot') || normalized.includes('slow_simmer') || normalized.includes('braise')) return 'simmer_braise';
+  return normalized;
+};
+
+const effortBucketFromProfile = (profile: RecipeCandidateProfile): string => (
+  profile.method === 'Braise' || profile.method === 'Roast + Simmer'
+    ? 'high'
+    : profile.quickTag === 'quick'
+      ? 'low'
+      : 'medium'
+);
+
+const richnessBucketFromProfile = (profile: RecipeCandidateProfile): string => (profile.comfort ? 'hearty' : 'balanced');
+
+const formatFamily = (format: RecipeCandidateProfile['format']): string => (
+  format === 'bowl' ? 'assembled' : format === 'plate' ? 'plated' : format
+);
+
+const semanticTraitsFromProfile = (profile: RecipeCandidateProfile) => ({
+  proteinFamily: proteinFamily(profile.protein),
+  cuisineFamily: cuisineFamily(profile.flavor),
+  methodFamily: methodFamily(profile.method),
+  formatFamily: formatFamily(profile.format),
+  effortBucket: effortBucketFromProfile(profile),
+  richnessBucket: richnessBucketFromProfile(profile)
+});
+
+const parsePatternSignature = (patternSignature: string) => {
+  const [proteinToken = '', methodToken = '', formatToken = ''] = patternSignature.split('|');
+  return {
+    proteinFamily: proteinFamily(proteinToken.replace(/_/g, ' ')),
+    methodFamily: methodFamily(methodToken.replace(/_/g, ' ')),
+    formatFamily: formatFamily((formatToken as RecipeCandidateProfile['format']) || 'plate')
+  };
+};
+
+const countSinceSeen = (items: string[], value: string): number => {
+  const index = items.indexOf(value);
+  return index === -1 ? items.length + 1 : index + 1;
+};
+
+const diversityAndClusterSignals = (profile: RecipeCandidateProfile, context: RecipeSuggestionContext): { diversityBonus: number; semanticClusterPenalty: number } => {
+  const traits = semanticTraitsFromProfile(profile);
+  const recentPatternWindow = context.sessionRecentPatternSignatures.slice(0, 8).map(parsePatternSignature);
+  const coverage = context.sessionCoverage ?? createEmptyCoverageSnapshot();
+
+  const rarityBonus = (
+    countSinceSeen(coverage.proteinsShown, traits.proteinFamily) * 0.18
+    + countSinceSeen(coverage.cuisinesShown, traits.cuisineFamily) * 0.2
+    + countSinceSeen(coverage.methodsShown, traits.methodFamily) * 0.18
+    + countSinceSeen(coverage.formatsShown, traits.formatFamily) * 0.15
+    + countSinceSeen(coverage.effortBucketsShown, traits.effortBucket) * 0.14
+    + countSinceSeen(coverage.richnessBucketsShown, traits.richnessBucket) * 0.15
+  );
+
+  const underrepresentedBoost = (
+    (!coverage.proteinsShown.includes(traits.proteinFamily) ? 1.2 : 0)
+    + (!coverage.cuisinesShown.includes(traits.cuisineFamily) ? 1.2 : 0)
+    + (!coverage.methodsShown.includes(traits.methodFamily) ? 1.1 : 0)
+    + (!coverage.formatsShown.includes(traits.formatFamily) ? 0.9 : 0)
+    + (!coverage.effortBucketsShown.includes(traits.effortBucket) ? 0.6 : 0)
+    + (!coverage.richnessBucketsShown.includes(traits.richnessBucket) ? 0.6 : 0)
+  );
+
+  const overlapDensity = recentPatternWindow.reduce((density, prior) => {
+    const matches = [
+      traits.proteinFamily === prior.proteinFamily,
+      traits.methodFamily === prior.methodFamily,
+      traits.formatFamily === prior.formatFamily
+    ].filter(Boolean).length;
+    if (matches >= 3) return density + 1.35;
+    if (matches === 2) return density + 0.9;
+    if (matches === 1) return density + 0.35;
+    return density;
+  }, 0);
+
+  const samePatternPenalty = coverage.patternSignaturesShown.includes(patternSignatureFromProfile(profile)) ? 3.4 : 0;
+
+  return {
+    diversityBonus: rarityBonus + underrepresentedBoost,
+    semanticClusterPenalty: overlapDensity + samePatternPenalty
+  };
+};
+
 const profileTraits = (profile: RecipeCandidateProfile) => ({
   cuisine: profile.flavor.toLowerCase(),
   protein: normalizeRuleToken(profile.protein),
   format: profile.format,
   cookingMethod: profile.method.toLowerCase(),
-  effort: profile.method === 'Braise' || profile.method === 'Roast + Simmer' ? 'high' : profile.quickTag === 'quick' ? 'low' : 'medium',
+  effort: effortBucketFromProfile(profile),
   cleanup: profile.method === 'Sheet Pan' || profile.method === 'One Pot' || profile.method === 'Skillet' ? 'low' : 'medium',
-  richness: profile.comfort ? 'hearty' : 'balanced',
+  richness: richnessBucketFromProfile(profile),
   speed: profile.quickTag === 'quick' ? 'quick' : 'standard',
   price: profile.protein.includes('salmon') || profile.protein.includes('shrimp') ? 'higher' : 'standard',
   flavorProfile: [profile.flavor.toLowerCase()]
@@ -419,13 +543,14 @@ const chooseCandidate = (
       ? profileStandingOrderScore(candidate, options.foodRules, options.promptTokens ?? [])
       : 0;
     const hardBlocked = profileViolatesHardRules(candidate, options?.blockedTokens ?? []);
+    const diversitySignals = diversityAndClusterSignals(candidate, context);
 
     const negativeFeedbackPenalty = scoreNegativeReasons(candidate, options?.feedbackReasons);
-    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty;
+    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty + diversitySignals.semanticClusterPenalty;
     const rejectionPenalty = isRejected ? 5 : 0;
     const duplicatePenalty = nearDuplicatePenalty + titleNearDuplicatePenalty;
 
-    let score = similarityScore + preferredBoost + weeklyScore + standingOrderScore;
+    let score = similarityScore + preferredBoost + weeklyScore + standingOrderScore + diversitySignals.diversityBonus;
     score -= negativeFeedbackPenalty + noveltyPenalty + rejectionPenalty + duplicatePenalty;
     if (hardBlocked) score -= 100;
 
@@ -435,6 +560,8 @@ const chooseCandidate = (
       negativeFeedbackPenalty,
       standingOrderScore,
       weeklyLensScore: weeklyScore,
+      diversityBonus: diversitySignals.diversityBonus,
+      semanticClusterPenalty: diversitySignals.semanticClusterPenalty,
       noveltyPenalty,
       rejectionPenalty,
       duplicatePenalty,
@@ -489,14 +616,20 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
         ...createRecipeSuggestionContext(input.prompt),
         sessionRecentSuggestionSignatures: [...input.context.sessionRecentSuggestionSignatures],
         sessionRecentTitleSignatures: [...input.context.sessionRecentTitleSignatures],
-        sessionRecentPatternSignatures: [...input.context.sessionRecentPatternSignatures]
+        sessionRecentPatternSignatures: [...input.context.sessionRecentPatternSignatures],
+        sessionCoverage: input.context.sessionCoverage
+          ? { ...input.context.sessionCoverage }
+          : createEmptyCoverageSnapshot()
       }
     : {
         ...input.context,
         feedbackEvents: [...input.context.feedbackEvents],
         recentSuggestedRecipeIds: [...input.context.recentSuggestedRecipeIds],
         rejectedRecipeIds: [...input.context.rejectedRecipeIds],
-        preferredRecipeIds: [...input.context.preferredRecipeIds]
+        preferredRecipeIds: [...input.context.preferredRecipeIds],
+        sessionCoverage: input.context.sessionCoverage
+          ? { ...input.context.sessionCoverage }
+          : createEmptyCoverageSnapshot()
       };
 
   const feedbackReasons = input.feedback?.reasons ?? [];
@@ -552,6 +685,16 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   const generatedSignature = signatureFromProfile(selection.candidate);
   const generatedTitleSignature = titleSignature(recipe.title);
   const generatedPatternSignature = patternSignatureFromProfile(selection.candidate);
+  const generatedTraits = semanticTraitsFromProfile(selection.candidate);
+  const nextCoverage: RecipeSuggestionCoverageSnapshot = {
+    proteinsShown: arrayUnique([generatedTraits.proteinFamily, ...baselineContext.sessionCoverage.proteinsShown]).slice(0, 18),
+    cuisinesShown: arrayUnique([generatedTraits.cuisineFamily, ...baselineContext.sessionCoverage.cuisinesShown]).slice(0, 18),
+    methodsShown: arrayUnique([generatedTraits.methodFamily, ...baselineContext.sessionCoverage.methodsShown]).slice(0, 18),
+    formatsShown: arrayUnique([generatedTraits.formatFamily, ...baselineContext.sessionCoverage.formatsShown]).slice(0, 18),
+    effortBucketsShown: arrayUnique([generatedTraits.effortBucket, ...baselineContext.sessionCoverage.effortBucketsShown]).slice(0, 12),
+    richnessBucketsShown: arrayUnique([generatedTraits.richnessBucket, ...baselineContext.sessionCoverage.richnessBucketsShown]).slice(0, 12),
+    patternSignaturesShown: arrayUnique([generatedPatternSignature, ...baselineContext.sessionCoverage.patternSignaturesShown]).slice(0, 24)
+  };
 
   const nextContext: RecipeSuggestionContext = {
     ...baselineContext,
@@ -561,6 +704,7 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     sessionRecentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.sessionRecentSuggestionSignatures]).slice(0, 28),
     sessionRecentTitleSignatures: arrayUnique([generatedTitleSignature, ...baselineContext.sessionRecentTitleSignatures]).slice(0, 28),
     sessionRecentPatternSignatures: arrayUnique([generatedPatternSignature, ...baselineContext.sessionRecentPatternSignatures]).slice(0, 20),
+    sessionCoverage: nextCoverage,
     recentSuggestedRecipeIds: arrayUnique([recipe.id, ...baselineContext.recentSuggestedRecipeIds]).slice(0, 12),
     lastSteeringSignals: arrayUnique([
       ...steeringSignals,
