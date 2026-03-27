@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../components/Card';
 import {
   createRecipeSuggestionContext,
@@ -66,6 +66,31 @@ const rejectionReasons: Array<{ id: RecipeFeedbackReason; label: string }> = [
   { id: 'wrong_cuisine', label: 'Don’t want this cuisine' }
 ];
 
+const STARTER_MEMORY_STORAGE_KEY = 'outgrow-meal-planner-starter-memory-v1';
+
+interface StarterSuggestionMemory {
+  recentInitialSuggestionSignatures: string[];
+  recentInitialClusterSignatures: string[];
+}
+
+const readStarterSuggestionMemory = (): StarterSuggestionMemory => {
+  if (typeof window === 'undefined') {
+    return { recentInitialSuggestionSignatures: [], recentInitialClusterSignatures: [] };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STARTER_MEMORY_STORAGE_KEY);
+    if (!raw) return { recentInitialSuggestionSignatures: [], recentInitialClusterSignatures: [] };
+    const parsed = JSON.parse(raw) as Partial<StarterSuggestionMemory>;
+    return {
+      recentInitialSuggestionSignatures: Array.isArray(parsed.recentInitialSuggestionSignatures) ? parsed.recentInitialSuggestionSignatures : [],
+      recentInitialClusterSignatures: Array.isArray(parsed.recentInitialClusterSignatures) ? parsed.recentInitialClusterSignatures : []
+    };
+  } catch (_error) {
+    return { recentInitialSuggestionSignatures: [], recentInitialClusterSignatures: [] };
+  }
+};
+
 export const MealPlannerScreen = () => {
   const { state, updateFoodRules } = useAppStore();
   const service = useMemo(() => {
@@ -83,9 +108,20 @@ export const MealPlannerScreen = () => {
   const [showRejectionReasons, setShowRejectionReasons] = useState(true);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
-  const [suggestionContext, setSuggestionContext] = useState(() => createRecipeSuggestionContext(prompt));
+  const [suggestionContext, setSuggestionContext] = useState(() => {
+    const starterMemory = readStarterSuggestionMemory();
+    return createRecipeSuggestionContext(prompt, starterMemory);
+  });
   const weeklySuccessText = state.onboarding.weeklyLens;
   const foodRules = state.foodRules;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STARTER_MEMORY_STORAGE_KEY, JSON.stringify({
+      recentInitialSuggestionSignatures: suggestionContext.recentInitialSuggestionSignatures,
+      recentInitialClusterSignatures: suggestionContext.recentInitialClusterSignatures
+    }));
+  }, [suggestionContext.recentInitialSuggestionSignatures, suggestionContext.recentInitialClusterSignatures]);
 
   const updatePantryStatus = (itemKey: string, status: PantryStatus) => {
     setPantryItems((current) => current.map((item) => (item.itemKey === itemKey ? { ...item, status, updatedAt: nowIso } : item)));

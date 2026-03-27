@@ -64,6 +64,11 @@ interface SuggestWithContextInput {
   };
 }
 
+interface InitialSuggestionMemorySeed {
+  recentInitialSuggestionSignatures?: string[];
+  recentInitialClusterSignatures?: string[];
+}
+
 interface CandidateScoreBreakdown {
   promptScore: number;
   positiveFeedbackScore: number;
@@ -102,10 +107,12 @@ const createEmptyCoverageSnapshot = (): RecipeSuggestionCoverageSnapshot => ({
   patternSignaturesShown: []
 });
 
-export const createRecipeSuggestionContext = (prompt: string): RecipeSuggestionContext => ({
+export const createRecipeSuggestionContext = (prompt: string, seed: InitialSuggestionMemorySeed = {}): RecipeSuggestionContext => ({
   promptSignature: promptSignature(prompt),
   iterations: 0,
   recentSuggestionSignatures: [],
+  recentInitialSuggestionSignatures: [...(seed.recentInitialSuggestionSignatures ?? [])].slice(0, 14),
+  recentInitialClusterSignatures: [...(seed.recentInitialClusterSignatures ?? [])].slice(0, 14),
   sessionRecentSuggestionSignatures: [],
   sessionRecentTitleSignatures: [],
   sessionRecentPatternSignatures: [],
@@ -258,6 +265,11 @@ const formatFamily = (format: RecipeCandidateProfile['format']): string => (
   format === 'bowl' ? 'assembled' : format === 'plate' ? 'plated' : format
 );
 
+const initialClusterSignatureFromProfile = (profile: RecipeCandidateProfile): string => {
+  const traits = semanticTraitsFromProfile(profile);
+  return [traits.proteinFamily, traits.methodFamily, traits.formatFamily].join('|');
+};
+
 const semanticTraitsFromProfile = (profile: RecipeCandidateProfile) => ({
   proteinFamily: proteinFamily(profile.protein),
   cuisineFamily: cuisineFamily(profile.flavor),
@@ -345,6 +357,13 @@ const tokenOverlap = (left: string, right: string): number => {
 };
 
 const WEEKLY_MEAL_ANCHORS = /\b(meal|dinner|lunch|breakfast|snack|cook|cooking|kitchen|recipe|grocery|cleanup|dishes|leftover|prep)\b/i;
+const GENERIC_PROMPT_TOKENS = new Set(['dinner', 'lunch', 'breakfast', 'meal', 'recipe', 'quick', 'easy', 'weeknight', 'healthy', 'comforting', 'protein', 'ideas']);
+const BROAD_PROMPT_TOKEN_COUNT_THRESHOLD = 5;
+
+const isBroadPrompt = (tokens: string[]): boolean => (
+  tokens.length <= BROAD_PROMPT_TOKEN_COUNT_THRESHOLD
+  && tokens.every((token) => GENERIC_PROMPT_TOKENS.has(token))
+);
 
 const extractWeeklyMealSignals = (weeklySuccessText?: string): WeeklyMealSignal[] => {
   const trimmed = weeklySuccessText?.trim();
@@ -517,6 +536,8 @@ const chooseCandidate = (
     blockedTokens?: string[];
     promptTokens?: string[];
     feedbackReasons?: RecipeFeedbackReason[];
+    isInitialSuggestion?: boolean;
+    broadPrompt?: boolean;
   }
 ): { candidate: RecipeCandidateProfile; breakdown: CandidateScoreBreakdown } => {
   const scored = pool.map((candidate, index) => {
@@ -536,6 +557,15 @@ const chooseCandidate = (
       return maxPenalty;
     }, 0);
     const repeatedPatternPenalty = context.sessionRecentPatternSignatures.includes(patternSignature) ? 6 : 0;
+    const starterClusterSignature = initialClusterSignatureFromProfile(candidate);
+    const initialSuggestionRecencyIndex = context.recentInitialSuggestionSignatures.indexOf(signature);
+    const initialClusterRecencyIndex = context.recentInitialClusterSignatures.indexOf(starterClusterSignature);
+    const initialSuggestionRecencyPenalty = initialSuggestionRecencyIndex === -1 ? 0 : Math.max(0, 5.5 - initialSuggestionRecencyIndex * 0.9);
+    const initialClusterRecencyPenalty = initialClusterRecencyIndex === -1 ? 0 : Math.max(0, 6.2 - initialClusterRecencyIndex * 0.95);
+    const initialStarterPenaltyScale = options?.broadPrompt ? 1.45 : 1;
+    const starterRecencyPenalty = options?.isInitialSuggestion
+      ? (initialSuggestionRecencyPenalty + initialClusterRecencyPenalty) * initialStarterPenaltyScale
+      : 0;
     const uniquePatternsInRecentWindow = new Set(context.sessionRecentPatternSignatures.slice(0, 8)).size;
     const broaderExplorationPenalty = repeatedPatternPenalty > 0 && uniquePatternsInRecentWindow < 5 ? 4 : 0;
     const weeklyScore = weeklySignalScore(candidate, options?.weeklySignals ?? []) * (options?.weeklyInfluenceScale ?? 0);
@@ -546,7 +576,7 @@ const chooseCandidate = (
     const diversitySignals = diversityAndClusterSignals(candidate, context);
 
     const negativeFeedbackPenalty = scoreNegativeReasons(candidate, options?.feedbackReasons);
-    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty + diversitySignals.semanticClusterPenalty;
+    const noveltyPenalty = (wasRecent ? 3 : 0) + (wasSessionRepeat ? 9 : 0) + titleNearDuplicatePenalty + repeatedPatternPenalty + broaderExplorationPenalty + diversitySignals.semanticClusterPenalty + starterRecencyPenalty;
     const rejectionPenalty = isRejected ? 5 : 0;
     const duplicatePenalty = nearDuplicatePenalty + titleNearDuplicatePenalty;
 
@@ -613,7 +643,10 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
 
   const baselineContext = promptChangedSignificantly
     ? {
-        ...createRecipeSuggestionContext(input.prompt),
+        ...createRecipeSuggestionContext(input.prompt, {
+          recentInitialSuggestionSignatures: input.context.recentInitialSuggestionSignatures,
+          recentInitialClusterSignatures: input.context.recentInitialClusterSignatures
+        }),
         sessionRecentSuggestionSignatures: [...input.context.sessionRecentSuggestionSignatures],
         sessionRecentTitleSignatures: [...input.context.sessionRecentTitleSignatures],
         sessionRecentPatternSignatures: [...input.context.sessionRecentPatternSignatures],
@@ -631,6 +664,7 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
           ? { ...input.context.sessionCoverage }
           : createEmptyCoverageSnapshot()
       };
+  const isInitialSuggestion = !input.feedback && baselineContext.iterations === 0;
 
   const feedbackReasons = input.feedback?.reasons ?? [];
   const feedbackRecipeSignature = input.feedback?.recipe ? [
@@ -666,8 +700,12 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   const weeklySignals = extractWeeklyMealSignals(input.weeklySuccessText);
   const weeklyInfluenceScale = input.feedback ? 0.2 : 0.35;
   const tokens = tokenizePrompt(input.prompt);
+  const broadPrompt = isBroadPrompt(tokens);
   const blockedTokens = getHardBlockedTokens(input.foodRules);
-  const pool = buildCandidatePool(tokens, baselineContext.iterations);
+  const openingRotationOffset = isInitialSuggestion
+    ? (baselineContext.recentInitialClusterSignatures.length % 9) + 1
+    : 0;
+  const pool = buildCandidatePool(tokens, baselineContext.iterations + openingRotationOffset);
   const similarityTarget = input.feedback?.type === 'more_like_this' ? feedbackRecipeSignature : baselineContext.positiveExampleSignatures[baselineContext.positiveExampleSignatures.length - 1];
   const selection = chooseCandidate(pool, baselineContext, {
     targetSimilarityTo: similarityTarget,
@@ -676,7 +714,9 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     foodRules: input.foodRules,
     blockedTokens,
     promptTokens: tokens,
-    feedbackReasons
+    feedbackReasons,
+    isInitialSuggestion,
+    broadPrompt
   });
   const recipe = buildRecipeFromProfile(selection.candidate, input.prompt, nowIso, {
     foodRules: input.foodRules,
@@ -685,6 +725,7 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
   const generatedSignature = signatureFromProfile(selection.candidate);
   const generatedTitleSignature = titleSignature(recipe.title);
   const generatedPatternSignature = patternSignatureFromProfile(selection.candidate);
+  const generatedInitialClusterSignature = initialClusterSignatureFromProfile(selection.candidate);
   const generatedTraits = semanticTraitsFromProfile(selection.candidate);
   const nextCoverage: RecipeSuggestionCoverageSnapshot = {
     proteinsShown: arrayUnique([generatedTraits.proteinFamily, ...baselineContext.sessionCoverage.proteinsShown]).slice(0, 18),
@@ -701,6 +742,12 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     promptSignature: nextPromptSignature,
     iterations: baselineContext.iterations + 1,
     recentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.recentSuggestionSignatures]).slice(0, 8),
+    recentInitialSuggestionSignatures: isInitialSuggestion
+      ? arrayUnique([generatedSignature, ...baselineContext.recentInitialSuggestionSignatures]).slice(0, 14)
+      : [...baselineContext.recentInitialSuggestionSignatures],
+    recentInitialClusterSignatures: isInitialSuggestion
+      ? arrayUnique([generatedInitialClusterSignature, ...baselineContext.recentInitialClusterSignatures]).slice(0, 14)
+      : [...baselineContext.recentInitialClusterSignatures],
     sessionRecentSuggestionSignatures: arrayUnique([generatedSignature, ...baselineContext.sessionRecentSuggestionSignatures]).slice(0, 28),
     sessionRecentTitleSignatures: arrayUnique([generatedTitleSignature, ...baselineContext.sessionRecentTitleSignatures]).slice(0, 28),
     sessionRecentPatternSignatures: arrayUnique([generatedPatternSignature, ...baselineContext.sessionRecentPatternSignatures]).slice(0, 20),

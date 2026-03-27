@@ -368,6 +368,27 @@ test('session novelty memory survives prompt changes', () => {
   assert(overlap < previousTitleTokens.size, 'prompt changes should not erase novelty pressure from session history');
 });
 
+test('cross-session initial suggestion memory steers new sessions away from repeated openers', () => {
+  const prompt = 'quick dinner';
+  const firstSession = suggestRecipeFromPromptWithContext({
+    prompt,
+    context: createRecipeSuggestionContext(prompt),
+    nowIso
+  });
+
+  const secondSessionContext = createRecipeSuggestionContext(prompt, {
+    recentInitialSuggestionSignatures: firstSession.context.recentInitialSuggestionSignatures,
+    recentInitialClusterSignatures: firstSession.context.recentInitialClusterSignatures
+  });
+  const secondSession = suggestRecipeFromPromptWithContext({
+    prompt,
+    context: secondSessionContext,
+    nowIso
+  });
+
+  assert(firstSession.recipe.title !== secondSession.recipe.title, 'session starts should rotate away from recently used opening suggestion');
+});
+
 test('weekly success meal cues softly influence recipe style and provide transparent steering text', () => {
   const context = createRecipeSuggestionContext('dinner idea');
   const result = suggestRecipeFromPromptWithContext({
