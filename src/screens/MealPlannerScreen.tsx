@@ -11,6 +11,7 @@ import {
   buildGeneratedFoodImage,
   selectRecipeHeroImage
 } from '../domain/meal-planning/recipeImagery';
+import type { GuidedRecipeView } from '../domain/meal-planning/groundedRecipes';
 import { useAppStore } from '../state/useAppStore';
 import {
   buildGrowthIntentNarrative,
@@ -459,6 +460,15 @@ export const MealPlannerScreen = () => {
       ? { ...reason, label: `Avoid ${normalizedPrimaryProtein || 'this protein'}` }
       : reason
   ));
+  const guidedView = useMemo(() => {
+    const raw = recipe.notes?.find((note) => note.kind === 'system' && note.id.startsWith('guided-'))?.text;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as GuidedRecipeView;
+    } catch (_error) {
+      return null;
+    }
+  }, [recipe.notes]);
 
   return (
     <section className="screen meal-planner-screen">
@@ -619,6 +629,26 @@ export const MealPlannerScreen = () => {
             {recipe.ingredients.map((ingredient) => <li key={ingredient.id}>{ingredient.rawText}</li>)}
           </ul>
         </div>
+        {guidedView ? (
+          <div className="stack compact">
+            <p className="muted">Guided cooking</p>
+            {guidedView.prepNotes.length ? (
+              <>
+                <p className="muted">Prep notes</p>
+                <ul className="explanation-list">
+                  {guidedView.prepNotes.map((note) => <li key={note}>{note}</li>)}
+                </ul>
+              </>
+            ) : null}
+            <ol className="explanation-list">
+              {guidedView.steps.map((step) => (
+                <li key={step.id}>
+                  <strong>{step.title}.</strong> {step.body}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
         </div>
         {actionMessage ? <p className="generated-output-copy">{actionMessage}</p> : null}
       </article>

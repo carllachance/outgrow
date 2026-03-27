@@ -9,6 +9,7 @@ import type {
   RecipeSuggestionSessionContext
 } from './types.js';
 import { buildGeneratedFoodImage } from './recipeImagery.js';
+import { suggestGroundedRecipe } from './groundedRecipes.js';
 
 const titleCase = (value: string): string => value.split(' ').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
 
@@ -815,10 +816,19 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     broadPrompt,
     rng: retrievalRandom
   });
-  const recipe = buildRecipeFromProfile(selection.candidate, input.prompt, nowIso, {
+  const grounded = suggestGroundedRecipe({
+    prompt: input.prompt,
+    context: baselineContext,
+    nowIso,
     foodRules: input.foodRules,
-    blockedTokens
+    feedback: input.feedback
+      ? {
+          recipe: input.feedback.recipe,
+          reasons: input.feedback.reasons
+        }
+      : undefined
   });
+  const recipe = grounded.recipe;
   const generatedSignature = signatureFromProfile(selection.candidate);
   const generatedTitleSignature = titleSignature(recipe.title);
   const generatedPatternSignature = patternSignatureFromProfile(selection.candidate);
@@ -852,6 +862,7 @@ export const suggestRecipeFromPromptWithContext = (input: SuggestWithContextInpu
     recentSuggestedRecipeIds: arrayUnique([recipe.id, ...baselineContext.recentSuggestedRecipeIds]).slice(0, 12),
     lastSteeringSignals: arrayUnique([
       ...steeringSignals,
+      ...(grounded.debug.ranking[0]?.explanation.slice(0, 2) ?? []),
       ...weeklySignals.map((signal) => signal.explanation),
       ...(selection.breakdown.positiveFeedbackScore > 0.8 ? ['leaning toward: similar traits'] : [])
     ]).slice(0, 3)
