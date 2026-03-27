@@ -22,6 +22,8 @@ export interface RecipeStep {
 export interface RecipeImage {
   url: string;
   alt?: string;
+  kind?: 'source_photo' | 'ai_generated_realistic_food' | 'placeholder';
+  placeholder?: boolean;
 }
 
 export interface Recipe {
@@ -186,6 +188,15 @@ export interface RecipeSuggestionCoverageSnapshot {
 
 export type RecipeFeedbackKind = 'prefer' | 'reject';
 
+export type RecipeFeedbackType =
+  | 'hide_recipe'
+  | 'avoid_ingredient'
+  | 'avoid_protein'
+  | 'avoid_category'
+  | 'prefer_attribute';
+
+export type RecipeFeedbackScope = 'current_card' | 'today' | 'week' | 'persistent';
+
 export type RecipeFeedbackReason =
   | 'too_heavy'
   | 'too_fussy'
@@ -201,6 +212,9 @@ export interface RecipeFeedbackEvent {
   recipeId: string;
   kind: RecipeFeedbackKind;
   reasons: RecipeFeedbackReason[];
+  feedbackType?: RecipeFeedbackType;
+  targetValue?: string;
+  scope?: RecipeFeedbackScope;
   createdAt: string;
 }
 

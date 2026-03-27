@@ -7,7 +7,10 @@ import {
 } from '../domain/meal-planning/aiRecipeSuggestion';
 import { InMemoryMealPlanningService } from '../domain/meal-planning/service';
 import type { PantryItem, PantryStatus, Recipe, RecipeFeedbackReason } from '../domain/meal-planning/types';
-import { buildGeneratedFoodImage } from '../domain/meal-planning/recipeImagery';
+import {
+  buildGeneratedFoodImage,
+  selectRecipeHeroImage
+} from '../domain/meal-planning/recipeImagery';
 import { useAppStore } from '../state/useAppStore';
 import {
   buildGrowthIntentNarrative,
@@ -65,7 +68,7 @@ const rejectionReasons: Array<{ id: RecipeFeedbackReason; label: string }> = [
   { id: 'wrong_flavor', label: 'Wrong flavor' },
   { id: 'too_slow', label: 'Too slow' },
   { id: 'too_expensive', label: 'Too expensive' },
-  { id: 'wrong_protein', label: 'Don’t want this protein' },
+  { id: 'wrong_protein', label: 'Avoid this protein' },
   { id: 'wrong_cuisine', label: 'Don’t want this cuisine' }
 ];
 
@@ -123,6 +126,9 @@ export const MealPlannerScreen = () => {
   const [actionMessage, setActionMessage] = useState('');
   const [showRejectionReasons, setShowRejectionReasons] = useState(true);
   const [selectedRejectionReasons, setSelectedRejectionReasons] = useState<RecipeFeedbackReason[]>([]);
+  const [temporaryIngredientExclusions, setTemporaryIngredientExclusions] = useState<string[]>([]);
+  const [lastAvoidedIngredient, setLastAvoidedIngredient] = useState<string | null>(null);
+  const [heroImageFailed, setHeroImageFailed] = useState(false);
   const [lastShoppingExplanation, setLastShoppingExplanation] = useState<string[]>([]);
   const [suggestionContext, setSuggestionContext] = useState(() => {
     const starterMemory = readStarterSuggestionMemory();
@@ -164,7 +170,7 @@ export const MealPlannerScreen = () => {
       scope: { type: 'week', startDate: '2026-03-26', endDate: '2026-04-01' },
       pantryItems,
       stapleItemKeys: ['salt', 'pepper', 'olive_oil'],
-      foodRules,
+      foodRules: mergedFoodRules,
       nowIso
     });
 
@@ -177,6 +183,17 @@ export const MealPlannerScreen = () => {
     return shopping.items.length;
   };
 
+  const mergedFoodRules = useMemo(() => ({
+    ...foodRules,
+    ingredientExclusions: Array.from(new Set([
+      ...foodRules.ingredientExclusions.map((value) => value.trim()).filter(Boolean),
+      ...temporaryIngredientExclusions
+    ]))
+  }), [foodRules, temporaryIngredientExclusions]);
+
+  const primaryProtein = recipe.ingredients[0]?.displayName || 'this protein';
+  const normalizedPrimaryProtein = primaryProtein.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
   const handleSuggestRecipe = (feedback: RecipeSuggestionFeedback = 'neutral', reasons: RecipeFeedbackReason[] = []) => {
     if (!prompt.trim()) {
       setActionMessage('Tell me what you need tonight, and I’ll draft something.');
@@ -188,7 +205,7 @@ export const MealPlannerScreen = () => {
       prompt: recommendationPrompt,
       context: suggestionContext,
       weeklySuccessText,
-      foodRules,
+      foodRules: mergedFoodRules,
       feedback: feedback === 'neutral' ? undefined : { type: feedback, recipe, reasons },
       nowIso
     });
@@ -196,6 +213,7 @@ export const MealPlannerScreen = () => {
     const savedDraft = service.saveRecipe(suggested.recipe);
     setSuggestionContext(suggested.context);
     setRecipe(savedDraft);
+    setHeroImageFailed(false);
     setServings(savedDraft.servingsDefault || servings);
 
     const steeringNote = suggested.context.lastSteeringSignals?.[0]
@@ -217,6 +235,36 @@ export const MealPlannerScreen = () => {
     }
 
     setActionMessage(`Draft ready: ${savedDraft.title}. Based on what you asked for.${steeringNote}`);
+  };
+
+  const handleHideThisRecipe = () => {
+    setSelectedRejectionReasons([]);
+    handleSuggestRecipe('not_for_me', []);
+    setActionMessage('Recipe hidden. Showing another option.');
+  };
+
+  const handleAvoidProtein = (scope: 'week' | 'persistent' = 'week') => {
+    if (!normalizedPrimaryProtein) return;
+    setTemporaryIngredientExclusions((current) => Array.from(new Set([...current, normalizedPrimaryProtein])));
+    setLastAvoidedIngredient(normalizedPrimaryProtein);
+    if (scope === 'persistent') {
+      updateFoodRules({
+        ingredientExclusions: Array.from(new Set([...foodRules.ingredientExclusions, normalizedPrimaryProtein]))
+      });
+    }
+    setSelectedRejectionReasons((current) => Array.from(new Set([...current, 'wrong_protein'])));
+    handleSuggestRecipe('not_for_me', ['wrong_protein']);
+    setActionMessage(`Avoiding ${normalizedPrimaryProtein} for now. Undo if you want to keep seeing it.`);
+  };
+
+  const handleUndoAvoid = () => {
+    if (!lastAvoidedIngredient) return;
+    setTemporaryIngredientExclusions((current) => current.filter((value) => value !== lastAvoidedIngredient));
+    updateFoodRules({
+      ingredientExclusions: foodRules.ingredientExclusions.filter((value) => value.trim().toLowerCase() !== lastAvoidedIngredient)
+    });
+    setActionMessage(`Undid avoid rule for ${lastAvoidedIngredient}.`);
+    setLastAvoidedIngredient(null);
   };
 
   const handleKeepRecipe = () => {
@@ -363,9 +411,10 @@ export const MealPlannerScreen = () => {
     setActionMessage(`Recipe card ready: ${card.title}${card.subtitle ? ` — ${card.subtitle}` : ''}.`);
   };
 
-  const imageUrl = recipe.image?.url?.trim();
+  const heroImage = selectRecipeHeroImage(recipe, heroImageFailed);
+  const imageUrl = heroImage.image?.url?.trim();
   const hasRecipeImage = Boolean(imageUrl);
-  const imageAlt = recipe.image?.alt?.trim() || `${recipe.title} photo`;
+  const imageAlt = heroImage.image?.alt?.trim() || `${recipe.title} photo`;
   const weekDates = useMemo(() => {
     const start = new Date('2026-03-27T00:00:00.000Z');
     return Array.from({ length: 7 }, (_, index) => {
@@ -402,7 +451,12 @@ export const MealPlannerScreen = () => {
         ? 'Shortlisted'
         : 'Not planned'
   ];
-  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Flexible time'} · ${servings} servings · ${hasRecipeImage ? 'Photo' : 'No photo'}`;
+  const compactMeta = `${recipe.totalTimeMin ? `${recipe.totalTimeMin} min` : 'Flexible time'} · ${servings} servings · ${heroImage.source === 'source_photo' ? 'Photo' : heroImage.source === 'ai_food_photo' ? 'AI food preview' : 'Preview fallback'}`;
+  const dynamicRejectionReasons = rejectionReasons.map((reason) => (
+    reason.id === 'wrong_protein'
+      ? { ...reason, label: `Avoid ${normalizedPrimaryProtein || 'this protein'}` }
+      : reason
+  ));
 
   return (
     <section className="screen meal-planner-screen">
@@ -446,7 +500,16 @@ export const MealPlannerScreen = () => {
       <article className={`planner-featured-card ${hasRecipeImage ? 'planner-featured-card-with-image' : 'planner-featured-card-no-image'}`}>
         <div className="planner-recipe-sticky-header">
           <div className={`planner-recipe-media planner-recipe-media-compact ${hasRecipeImage ? 'planner-recipe-media-with-image' : 'planner-recipe-media-no-image'}`}>
-            {hasRecipeImage ? <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} /> : null}
+            {hasRecipeImage ? (
+              <img className="planner-recipe-image" src={imageUrl} alt={imageAlt} onError={() => setHeroImageFailed(true)} />
+            ) : (
+              <div className="planner-image-fallback-copy">Preview unavailable</div>
+            )}
+            {heroImage.label ? (
+              <div className="planner-image-meta">
+                <span>{heroImage.label}</span>
+              </div>
+            ) : null}
           </div>
           <div className="planner-recipe-header-copy">
             <h3 className="planner-recipe-title serif">{recipe.title}</h3>
@@ -484,7 +547,7 @@ export const MealPlannerScreen = () => {
             ))}
           </div>
         </div>
-        <p className="planner-source-note">Visual: AI-generated • Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
+        <p className="planner-source-note">Visual: {heroImage.source === 'source_photo' ? 'Source photo' : heroImage.source === 'ai_food_photo' ? 'AI-generated realistic food' : 'Honest fallback tile'} • Source: {recipe.source?.label || 'Unknown source'} • v{recipe.version}</p>
         <div className="planner-secondary-actions">
           <button type="button" onClick={() => handleSuggestRecipe('neutral')}>Suggest another</button>
           <button type="button" onClick={() => handleSuggestRecipe('more_like_this')}>More like this</button>
@@ -497,9 +560,10 @@ export const MealPlannerScreen = () => {
         </div>
         {showRejectionReasons ? (
           <div className="stack compact">
-            <p className="muted">Editorial notes for the next recommendation:</p>
+            <p className="muted">Recommendation tuning (soft):</p>
             <div className="planner-chip-row">
-              {rejectionReasons.map((reason) => {
+              <button type="button" className="planner-chip" onClick={handleHideThisRecipe}>Hide this recipe</button>
+              {dynamicRejectionReasons.map((reason) => {
                 const isSelected = selectedRejectionReasons.includes(reason.id);
                 return (
                   <button
@@ -523,6 +587,21 @@ export const MealPlannerScreen = () => {
               >
                 Suggest something else
               </button>
+            </div>
+            <p className="muted">Preferences (operational):</p>
+            <div className="planner-chip-row">
+              <button type="button" className="planner-chip" onClick={() => handleAvoidProtein('week')}>
+                Avoid {normalizedPrimaryProtein || 'this protein'} this week
+              </button>
+              <button type="button" className="planner-chip" onClick={() => handleAvoidProtein('persistent')}>
+                Don’t show {normalizedPrimaryProtein || 'this protein'} going forward
+              </button>
+              <button type="button" className="planner-chip" onClick={() => handleSuggestRecipe('not_for_me', ['wrong_cuisine'])}>
+                Not in the mood for seafood
+              </button>
+              {lastAvoidedIngredient ? (
+                <button type="button" className="planner-chip planner-chip-action" onClick={handleUndoAvoid}>Undo avoid</button>
+              ) : null}
             </div>
           </div>
         ) : null}

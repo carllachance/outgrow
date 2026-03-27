@@ -1,58 +1,90 @@
-import type { RecipeImage } from './types.js';
+import type { Recipe, RecipeImage } from './types.js';
 
-const hash = (value: string): number => {
-  let result = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    result = (result * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return result;
-};
-
-const hue = (seed: number, offset: number): number => (seed + offset) % 360;
+const encodePrompt = (value: string): string => encodeURIComponent(value.trim().replace(/\s+/g, ' '));
 
 const encodeSvg = (svg: string): string => `data:image/svg+xml,${encodeURIComponent(svg)}`;
 
+const titleCase = (value: string): string => value.split(' ').map((part) => part ? part[0].toUpperCase() + part.slice(1) : '').join(' ');
+
+export type RecipeHeroImageSource = 'source_photo' | 'ai_food_photo' | 'fallback_illustration' | 'none';
+
+export interface RecipeHeroImageSelection {
+  source: RecipeHeroImageSource;
+  image?: RecipeImage;
+  label?: string;
+}
+
 export const buildGeneratedFoodImage = (prompt: string, title: string): RecipeImage => {
-  const seed = hash(`${prompt}|${title}`);
-  const hueA = hue(seed, 18);
-  const hueB = hue(seed, 52);
-  const hueC = hue(seed, 96);
-  const herbHue = hue(seed, 138);
-  const garnishHue = hue(seed, 164);
+  const realisticPrompt = [
+    'Realistic overhead food photograph',
+    title,
+    prompt,
+    'natural kitchen lighting',
+    'simple ceramic plate',
+    'believable editorial food photography',
+    'not abstract art',
+    'not illustration',
+    'not surreal'
+  ].join(', ');
 
-  const plateX = 360 + (seed % 36);
-  const plateY = 236 + (seed % 16);
-  const garnishX = 420 + (seed % 44);
-  const garnishY = 170 + (seed % 30);
+  return {
+    url: `https://image.pollinations.ai/prompt/${encodePrompt(realisticPrompt)}?width=1200&height=800&model=flux&nologo=true`,
+    alt: `AI-generated realistic food photo of ${title}`,
+    kind: 'ai_generated_realistic_food'
+  };
+};
 
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800' role='img' aria-label='AI generated plating for ${title}'>
+export const buildIngredientIllustrationTile = (title: string, ingredients: string[] = []): RecipeImage => {
+  const ingredientLine = ingredients.length
+    ? ingredients.slice(0, 3).map(titleCase).join(' • ')
+    : 'Simple ingredient preview';
+
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800' role='img' aria-label='Ingredient illustration for ${title}'>
     <defs>
       <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
-        <stop offset='0%' stop-color='hsl(${hueA},55%,82%)'/>
-        <stop offset='45%' stop-color='hsl(${hueB},48%,73%)'/>
-        <stop offset='100%' stop-color='hsl(${hueC},30%,62%)'/>
+        <stop offset='0%' stop-color='#f3efe4'/>
+        <stop offset='100%' stop-color='#e8e0d0'/>
       </linearGradient>
-      <radialGradient id='plateLight' cx='50%' cy='45%' r='56%'>
-        <stop offset='0%' stop-color='rgba(255,255,255,.95)'/>
-        <stop offset='70%' stop-color='rgba(245,241,235,.82)'/>
-        <stop offset='100%' stop-color='rgba(218,209,194,.82)'/>
-      </radialGradient>
     </defs>
     <rect width='1200' height='800' fill='url(#bg)'/>
-    <ellipse cx='612' cy='494' rx='360' ry='112' fill='rgba(38,40,36,.14)'/>
-    <circle cx='600' cy='370' r='262' fill='url(#plateLight)'/>
-    <circle cx='600' cy='370' r='214' fill='rgba(255,255,255,.75)'/>
-    <ellipse cx='${plateX}' cy='${plateY}' rx='188' ry='128' fill='hsl(${hueB},48%,58%)' opacity='.75'/>
-    <ellipse cx='520' cy='422' rx='190' ry='130' fill='hsl(${hueA},56%,52%)' opacity='.72'/>
-    <ellipse cx='620' cy='356' rx='174' ry='118' fill='hsl(${hueC},48%,46%)' opacity='.7'/>
-    <ellipse cx='678' cy='434' rx='160' ry='84' fill='hsl(${herbHue},36%,38%)' opacity='.55'/>
-    <circle cx='${garnishX}' cy='${garnishY}' r='34' fill='hsl(${garnishHue},62%,44%)' opacity='.78'/>
-    <circle cx='${garnishX - 52}' cy='${garnishY + 22}' r='18' fill='hsl(${herbHue},40%,36%)' opacity='.74'/>
-    <text x='68' y='726' fill='rgba(255,255,255,.78)' font-family='Inter,Segoe UI,sans-serif' font-size='36' letter-spacing='3'>OUTGROW AI VISUAL</text>
+    <rect x='120' y='130' width='960' height='540' rx='36' fill='rgba(255,255,255,0.78)' stroke='rgba(140,122,86,0.22)'/>
+    <text x='160' y='245' fill='#4b3d25' font-family='Inter,Segoe UI,sans-serif' font-size='36' font-weight='600'>Image coming soon</text>
+    <text x='160' y='305' fill='#63533a' font-family='Inter,Segoe UI,sans-serif' font-size='28'>${title}</text>
+    <text x='160' y='365' fill='#7a6849' font-family='Inter,Segoe UI,sans-serif' font-size='24'>${ingredientLine}</text>
+    <g transform='translate(160,430)'>
+      <rect x='0' y='0' width='150' height='120' rx='22' fill='#dfd3bb'/>
+      <rect x='180' y='0' width='150' height='120' rx='22' fill='#d8cfbf'/>
+      <rect x='360' y='0' width='150' height='120' rx='22' fill='#e2d8c2'/>
+    </g>
   </svg>`;
 
   return {
     url: encodeSvg(svg),
-    alt: `AI-generated food styling for ${title}`
+    alt: `Ingredient illustration preview for ${title}`,
+    kind: 'placeholder',
+    placeholder: true
   };
+};
+
+export const selectRecipeHeroImage = (recipe: Recipe, hasImageError = false): RecipeHeroImageSelection => {
+  const image = recipe.image;
+  if (!image || hasImageError) {
+    const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
+    return { source: 'fallback_illustration', image: fallback, label: 'Image generating…' };
+  }
+
+  if (image.kind === 'source_photo' || recipe.source?.type === 'web' || recipe.source?.type === 'imported' || recipe.source?.type === 'shared' || recipe.source?.type === 'manual') {
+    return { source: 'source_photo', image };
+  }
+
+  if (image.kind === 'ai_generated_realistic_food') {
+    return { source: 'ai_food_photo', image, label: 'AI food preview' };
+  }
+
+  if (image.placeholder) {
+    return { source: 'fallback_illustration', image, label: 'Preview unavailable' };
+  }
+
+  const fallback = buildIngredientIllustrationTile(recipe.title, recipe.ingredients.map((item) => item.displayName));
+  return { source: 'fallback_illustration', image: fallback, label: 'Preview unavailable' };
 };
