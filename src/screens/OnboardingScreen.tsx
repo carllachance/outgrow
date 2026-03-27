@@ -1,6 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { WelcomeHero } from '../components/brand/WelcomeHero';
 import { useStore } from '../state/AppStoreContext';
 import { buildGoalRefinementSuggestions } from '../state/goalRefinement';
 
@@ -20,7 +19,6 @@ export const OnboardingScreen = () => {
   const {
     state,
     updateOnboarding,
-    updateProfile,
     setGoalText,
     addPlanItem
   } = useStore();
@@ -52,10 +50,6 @@ export const OnboardingScreen = () => {
 
   return (
     <div className="screen onboarding-screen">
-      <WelcomeHero
-        onPrimaryAction={() => goToStep(1)}
-        onSecondaryAction={() => goToStep(3)}
-      />
       {activeStep > 1 ? (
         <div className="onboarding-progress" aria-live="polite">
           Step {activeStep} of {totalSteps}
@@ -66,15 +60,15 @@ export const OnboardingScreen = () => {
           <section className="chapter" aria-labelledby="onboarding-step-one">
           <p className="panel-kicker">Step one</p>
           <h2 id="onboarding-step-one">What are you working toward right now?</h2>
-          <p>Use your own words. One sentence is enough to start.</p>
           <textarea
             value={goalDraft}
             onChange={(e) => setGoalDraft(e.target.value)}
             placeholder="I want simple lunches so weekdays feel easier."
           />
+          <p>One sentence is enough to start.</p>
           {visibleGoalSuggestions.length ? (
             <div>
-              <p>I can help tighten the wording a bit while keeping what you mean.</p>
+              <p>Want help tightening the wording while keeping your meaning?</p>
               <div className="stack compact">
                 {visibleGoalSuggestions.map((suggestion) => (
                   <div key={suggestion.suggestedText}>
@@ -84,21 +78,13 @@ export const OnboardingScreen = () => {
                       type="button"
                       onClick={() => setGoalDraft(suggestion.suggestedText)}
                     >
-                      Use this wording
+                      Use this
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
-          <p>Do you already have a plan you want me to help you stay on track with?</p>
-          <p>Want help building a realistic framework around your goal?</p>
-          <p>You can revisit and revise your goals and plans anytime.</p>
-          <input
-            value={state.profile.name}
-            onChange={(e) => updateProfile(e.target.value, state.profile.pronouns ?? '')}
-            placeholder="Your name"
-          />
           <button
             type="button"
             className="primary-cta"
