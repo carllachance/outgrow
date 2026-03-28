@@ -166,11 +166,17 @@ export const hydrateAppState = (raw: string | null): AppState => {
     const parsed = { ...defaultState, ...JSON.parse(raw) } as AppState;
     const onboardingStep = parsed.onboarding?.activeStep;
     const sanitizedOnboardingStep: 1 | 2 | 3 = onboardingStep === 2 || onboardingStep === 3 ? onboardingStep : 1;
+    const onboardingChoice = parsed.onboarding?.frameworkChoice;
+    const sanitizedFrameworkChoice: 'stayOnTrack' | 'buildFramework' | 'startSimple' =
+      onboardingChoice === 'buildFramework' || onboardingChoice === 'stayOnTrack' || onboardingChoice === 'startSimple'
+        ? onboardingChoice
+        : 'startSimple';
     return {
       ...parsed,
       onboarding: {
         ...defaultState.onboarding,
         ...parsed.onboarding,
+        frameworkChoice: sanitizedFrameworkChoice,
         activeStep: sanitizedOnboardingStep,
         hasCompleted: Boolean(parsed.onboarding?.hasCompleted)
       },

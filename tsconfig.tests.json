@@ -18,13 +18,17 @@
     "src/data/purposeIntegrity.ts",
     "src/data/safetyRuntimePolicy.ts",
     "src/state/defaultState.ts",
+    "src/state/goalRefinement.ts",
     "src/state/hydrateState.ts",
+    "src/state/onboardingStartingPoints.ts",
+    "src/content/onboardingCopy.ts",
     "src/state/mealLogSummary.ts",
     "src/state/safetyState.ts",
     "src/domain/meal-planning/types.ts",
     "src/domain/meal-planning/derivations.ts",
     "src/domain/meal-planning/service.ts",
     "tests/safetyState.runtime.test.ts",
+    "tests/onboarding.runtime.test.ts",
     "tests/mealLogging.runtime.test.ts",
     "tests/mealPlanning.runtime.test.ts"
   ]

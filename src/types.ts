@@ -40,6 +40,7 @@ export interface GoalRefinementSuggestion {
 export interface OnboardingState {
   optionalNarrative: string;
   expectedTimeline: string;
+  frameworkChoice: 'stayOnTrack' | 'buildFramework' | 'startSimple';
   supportTier: SupportTier;
   activeStep: 1 | 2 | 3;
   hasCompleted: boolean;
