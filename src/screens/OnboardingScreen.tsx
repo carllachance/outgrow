@@ -1,13 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { onboardingCopy } from '../content/onboardingCopy';
 import { useStore } from '../state/AppStoreContext';
 import { buildGoalRefinementSuggestions } from '../state/goalRefinement';
-
-const startingPointOptions = [
-  'Plan two dinners before busy days',
-  'Create one reliable fallback meal',
-  'Prep one repeatable breakfast'
-];
+import { inferStartingPointOptions } from '../state/onboardingStartingPoints';
 
 const supportStyleOptions = [
   { value: 'Active', label: 'Coach me actively' },
@@ -47,6 +43,7 @@ export const OnboardingScreen = () => {
   };
 
   const visibleGoalSuggestions = useMemo(() => buildGoalRefinementSuggestions(goalDraft), [goalDraft]);
+  const startingPointOptions = useMemo(() => inferStartingPointOptions(goalDraft), [goalDraft]);
 
   return (
     <div className="screen onboarding-screen">
@@ -59,16 +56,16 @@ export const OnboardingScreen = () => {
         {activeStep === 1 ? (
           <section className="chapter" aria-labelledby="onboarding-step-one">
           <p className="panel-kicker">Step one</p>
-          <h2 id="onboarding-step-one">What are you working toward right now?</h2>
+          <h2 id="onboarding-step-one">{onboardingCopy.stepOne.heading}</h2>
           <textarea
             value={goalDraft}
             onChange={(e) => setGoalDraft(e.target.value)}
-            placeholder="I want simple lunches so weekdays feel easier."
+            placeholder={onboardingCopy.stepOne.placeholder}
           />
-          <p>One sentence is enough to start.</p>
+          <p>{onboardingCopy.stepOne.helper}</p>
           {visibleGoalSuggestions.length ? (
             <div>
-              <p>Want help tightening the wording while keeping your meaning?</p>
+              <p>{onboardingCopy.stepOne.refinementIntro}</p>
               <div className="stack compact">
                 {visibleGoalSuggestions.map((suggestion) => (
                   <div key={suggestion.suggestedText}>
@@ -78,7 +75,7 @@ export const OnboardingScreen = () => {
                       type="button"
                       onClick={() => setGoalDraft(suggestion.suggestedText)}
                     >
-                      Use this
+                      {onboardingCopy.stepOne.refinementCta}
                     </button>
                   </div>
                 ))}
@@ -101,13 +98,31 @@ export const OnboardingScreen = () => {
         {activeStep === 2 ? (
           <section className="chapter" aria-labelledby="onboarding-friction-step">
           <p className="panel-kicker">Step two</p>
-          <h2 id="onboarding-friction-step">What tends to make this harder than it needs to be?</h2>
-          <p>Keep it practical: time, energy, routine, environment, or follow-through.</p>
-          <textarea
-            value={state.onboarding.optionalNarrative}
-            onChange={(e) => updateOnboarding({ optionalNarrative: e.target.value })}
-            placeholder="I skip meals when work gets busy, then overeat at night."
-          />
+          <h2 id="onboarding-friction-step">{onboardingCopy.stepTwo.heading}</h2>
+          <p>{onboardingCopy.stepTwo.helper}</p>
+          <div className="choices">
+            <button
+              type="button"
+              className={`choice-chip ${state.onboarding.frameworkChoice === 'stayOnTrack' ? 'active' : ''}`}
+              onClick={() => updateOnboarding({ frameworkChoice: 'stayOnTrack' })}
+            >
+              {onboardingCopy.stepTwo.options.stayOnTrack}
+            </button>
+            <button
+              type="button"
+              className={`choice-chip ${state.onboarding.frameworkChoice === 'buildFramework' ? 'active' : ''}`}
+              onClick={() => updateOnboarding({ frameworkChoice: 'buildFramework' })}
+            >
+              {onboardingCopy.stepTwo.options.buildFramework}
+            </button>
+            <button
+              type="button"
+              className={`choice-chip ${state.onboarding.frameworkChoice === 'startSimple' ? 'active' : ''}`}
+              onClick={() => updateOnboarding({ frameworkChoice: 'startSimple' })}
+            >
+              {onboardingCopy.stepTwo.options.startSimple}
+            </button>
+          </div>
           <div className="inline-actions">
             <button type="button" onClick={() => goToStep(1)}>Back</button>
             <button type="button" className="primary-cta" onClick={() => goToStep(3)}>Continue</button>
@@ -118,7 +133,13 @@ export const OnboardingScreen = () => {
         {activeStep === 3 ? (
           <section className="chapter" aria-labelledby="onboarding-support-style-step">
           <p className="panel-kicker">Step three</p>
-          <h2 id="onboarding-support-style-step">Pick your support style and this week&apos;s starting move.</h2>
+          <h2 id="onboarding-support-style-step">
+            {state.onboarding.frameworkChoice === 'buildFramework'
+              ? 'Let’s build a small realistic framework for this week.'
+              : state.onboarding.frameworkChoice === 'stayOnTrack'
+                ? 'Let’s keep you on track with one grounded starting move.'
+                : 'Start simple with one small step you can revisit anytime.'}
+          </h2>
           <p>Short, grounded, and built for real planning.</p>
           <div className="choices">
             {supportStyleOptions.map((option) => (

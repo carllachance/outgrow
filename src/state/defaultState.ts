@@ -12,6 +12,7 @@ export const defaultState: AppState = {
   onboarding: {
     optionalNarrative: '',
     expectedTimeline: '',
+    frameworkChoice: 'startSimple',
     supportTier: 'Active',
     activeStep: 1,
     hasCompleted: false
