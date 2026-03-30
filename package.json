@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "tsc -p tsconfig.tests.json && node -e \"require('fs').writeFileSync('.tmp-tests/package.json', JSON.stringify({type:'commonjs'}))\" && node .tmp-tests/tests/safetyState.runtime.test.js && node .tmp-tests/tests/onboarding.runtime.test.js && node .tmp-tests/tests/mealLogging.runtime.test.js && node .tmp-tests/tests/mealPlanning.runtime.test.js"
+    "test": "tsc -p tsconfig.tests.json && node -e \"require('fs').writeFileSync('.tmp-tests/package.json', JSON.stringify({type:'commonjs'}))\" && node .tmp-tests/tests/safetyState.runtime.test.js && node .tmp-tests/tests/onboarding.runtime.test.js && node .tmp-tests/tests/mealLogging.runtime.test.js && node .tmp-tests/tests/mealPlanning.runtime.test.js && node .tmp-tests/tests/supportSeeding.runtime.test.js"
   },
   "dependencies": {
     "react": "^18.3.1",

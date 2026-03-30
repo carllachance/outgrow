@@ -3,6 +3,7 @@ import { Card } from '../components/Card';
 import { useStore } from '../state/AppStoreContext';
 import { Link } from 'react-router-dom';
 import { inferFrameworkFromGoal } from '../state/frameworkScaffolding';
+import { SupportFrameworkSurface } from '../components/grow/SupportFrameworkSurface';
 
 export const ProfileScreen = () => {
   const {
@@ -17,11 +18,14 @@ export const ProfileScreen = () => {
     acceptGoalSuggestion,
     dismissGoalSuggestion,
     addPlanItem,
-    removePlanItem
+    removePlanItem,
+    setSupportItemStatus,
+    updateSupportItemText
   } = useStore();
   const [goalDraft, setGoalDraft] = useState(state.goal?.active_display_text ?? '');
   const [goalSaveMessage, setGoalSaveMessage] = useState('');
   const [planItemDraft, setPlanItemDraft] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
 
   useEffect(() => {
     setGoalDraft(state.goal?.active_display_text ?? '');
@@ -30,6 +34,24 @@ export const ProfileScreen = () => {
   const framework = useMemo(() => inferFrameworkFromGoal(state.goal?.active_display_text ?? ''), [state.goal?.active_display_text]);
 
   const currentPlan = useMemo(() => state.planItems.filter((item) => item.status === 'active'), [state.planItems]);
+  const activeIntent = useMemo(
+    () => state.growthIntents.find((intent) => intent.active && intent.status === 'active'),
+    [state.growthIntents]
+  );
+  const activeFocusAreas = useMemo(
+    () => state.focusAreas
+      .filter((focusArea) => focusArea.active && (!activeIntent || focusArea.intentId === activeIntent.id))
+      .sort((left, right) => left.priority - right.priority),
+    [activeIntent, state.focusAreas]
+  );
+  const focusAreaById = useMemo(
+    () => new Map(activeFocusAreas.map((focusArea) => [focusArea.id, focusArea])),
+    [activeFocusAreas]
+  );
+  const relatedSupportItems = useMemo(() => {
+    const activeFocusAreaIds = new Set(activeFocusAreas.map((focusArea) => focusArea.id));
+    return state.supportItems.filter((supportItem) => activeFocusAreaIds.has(supportItem.focusAreaId));
+  }, [activeFocusAreas, state.supportItems]);
   const visibleGoalSuggestions = useMemo(
     () => state.goalRefinementSuggestions.filter((suggestion) => !suggestion.dismissed_at).slice(0, 3),
     [state.goalRefinementSuggestions]
@@ -131,6 +153,31 @@ export const ProfileScreen = () => {
             </li>
           ))}
         </ul>
+      </Card>
+      <Card title="Focus areas and supports">
+        <SupportFrameworkSurface
+          focusAreas={activeFocusAreas}
+          supportItems={relatedSupportItems}
+          focusAreaById={focusAreaById}
+          onPauseSupport={(supportItemId) => {
+            const result = setSupportItemStatus(supportItemId, 'paused');
+            setSupportMessage(result.ok ? 'Support paused.' : result.message);
+          }}
+          onRetireSupport={(supportItemId) => {
+            const result = setSupportItemStatus(supportItemId, 'retired');
+            setSupportMessage(result.ok ? 'Support retired.' : result.message);
+          }}
+          onActivateSupport={(supportItemId) => {
+            const result = setSupportItemStatus(supportItemId, 'active');
+            setSupportMessage(result.ok ? 'Support is active again.' : result.message);
+          }}
+          onEditSupport={(supportItemId, nextText) => {
+            const result = updateSupportItemText(supportItemId, nextText);
+            setSupportMessage(result.ok ? 'Support updated.' : result.message);
+          }}
+          emptySupportMessage="No supports yet. We can keep this simple until you add one."
+        />
+        {supportMessage ? <p>{supportMessage}</p> : null}
       </Card>
       <Card title="Current plan">
         <p>This doesn&apos;t have to be perfect. You can keep adjusting it.</p>
