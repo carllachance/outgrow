@@ -8,6 +8,7 @@ import { hydrateAppState } from './hydrateState';
 import { canUseMealLogging } from './mealLogSummary';
 import { buildInsightSupportLinks } from './insightProvenance';
 import { buildGoalRefinementSuggestions } from './goalRefinement';
+import { deriveRefinedIntentText, seedFocusAreaLabels } from './onboardingGrow';
 import type { DailyMoment, Reflection as GrowthReflection, SupportItemType } from '../domain/growth/types';
 
 const ACTIVE_MODE_STORAGE_KEY = 'outgrow.activeMode';
@@ -157,6 +158,66 @@ export const useAppStore = () => {
               intent.active ? { ...intent, active: false, updatedAt: at } : intent
             )
           ]
+        });
+        return growSuccess();
+      },
+      completeOnboardingWithGrowthIntent: (rawText: string, clarificationValue?: string) => {
+        const trimmedRawText = rawText.trim();
+        if (!trimmedRawText) return growFailure('Write what you are working toward before saving.');
+        const at = nowIso();
+        const refinedText = deriveRefinedIntentText(trimmedRawText, clarificationValue ?? '');
+        const intentId = crypto.randomUUID();
+        const seededLabels = seedFocusAreaLabels(trimmedRawText, clarificationValue).slice(0, 3);
+        const seededFocusAreas = seededLabels.map((label, index) => ({
+          id: crypto.randomUUID(),
+          intentId,
+          label,
+          userDefined: false,
+          priority: index + 1,
+          active: true,
+          createdAt: at,
+          updatedAt: at
+        }));
+        const existingGoal = state.goal;
+        const nextGoal = existingGoal
+          ? {
+              ...existingGoal,
+              active_display_text: trimmedRawText,
+              updated_at: at,
+              status: 'active' as const
+            }
+          : {
+              id: crypto.randomUUID(),
+              user_id: 'local-user',
+              original_text: trimmedRawText,
+              active_display_text: trimmedRawText,
+              created_at: at,
+              updated_at: at,
+              status: 'active' as const
+            };
+        persist({
+          ...state,
+          goal: nextGoal,
+          onboarding: {
+            ...state.onboarding,
+            hasCompleted: true,
+            activeStep: 3
+          },
+          growthIntents: [
+            {
+              id: intentId,
+              rawText: trimmedRawText,
+              refinedText,
+              active: true,
+              status: 'active',
+              createdAt: at,
+              updatedAt: at
+            },
+            ...state.growthIntents.map((intent) =>
+              intent.active ? { ...intent, active: false, updatedAt: at } : intent
+            )
+          ],
+          focusAreas: [...seededFocusAreas, ...state.focusAreas]
         });
         return growSuccess();
       },
