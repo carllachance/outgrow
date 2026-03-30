@@ -9,8 +9,14 @@ import type {
   MealLogEntry,
   PlanItem,
   PlanItemType,
+  StoredDailyMoment,
+  StoredFocusArea,
+  StoredGrowthIntent,
+  StoredGrowthReflection,
+  StoredSupportItem,
   TimeMode
 } from '../types';
+import type { DailyMomentType, Experiment, Pattern, SupportItemFrequency, SupportItemType } from '../domain/growth/types';
 
 const VALID_MEAL_KINDS: MealKind[] = ['breakfast', 'lunch', 'dinner', 'snack', 'drink', 'unknown'];
 const VALID_TIME_MODES: TimeMode[] = ['soft', 'exact', 'unknown'];
@@ -159,6 +165,216 @@ const sanitizePlanItems = (value: unknown): PlanItem[] => {
     .filter(Boolean) as PlanItem[];
 };
 
+const VALID_SUPPORT_ITEM_TYPES: SupportItemType[] = [
+  'planning',
+  'reminder',
+  'fallback',
+  'check_in',
+  'reflection',
+  'environment_cue',
+  'recovery',
+  'encouragement'
+];
+
+const VALID_SUPPORT_ITEM_FREQUENCIES: SupportItemFrequency[] = ['daily', 'weekday', 'weekly', 'custom', 'as_needed'];
+const VALID_DAILY_MOMENT_TYPES: DailyMomentType[] = ['meal', 'movement', 'sleep', 'presence', 'stress', 'check_in', 'freeform'];
+
+const sanitizeGrowthIntents = (value: unknown): StoredGrowthIntent[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<StoredGrowthIntent>;
+      if (!candidate.id || !candidate.rawText) return null;
+      const createdAt = String(candidate.createdAt ?? new Date().toISOString());
+      const updatedAt = String(candidate.updatedAt ?? createdAt);
+      const status = candidate.status === 'archived' ? 'archived' : 'active';
+      const active = status === 'archived' ? false : candidate.active ?? true;
+      return {
+        id: String(candidate.id),
+        rawText: String(candidate.rawText),
+        refinedText: typeof candidate.refinedText === 'string' ? candidate.refinedText : undefined,
+        importanceReason: typeof candidate.importanceReason === 'string' ? candidate.importanceReason : undefined,
+        successDefinition: typeof candidate.successDefinition === 'string' ? candidate.successDefinition : undefined,
+        confidenceLevel: typeof candidate.confidenceLevel === 'number' ? candidate.confidenceLevel : undefined,
+        active,
+        status,
+        createdAt,
+        updatedAt
+      } satisfies StoredGrowthIntent;
+    })
+    .filter(Boolean) as StoredGrowthIntent[];
+};
+
+const sanitizeFocusAreas = (value: unknown): StoredFocusArea[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<StoredFocusArea>;
+      if (!candidate.id || !candidate.intentId || !candidate.label) return null;
+      const createdAt = String(candidate.createdAt ?? new Date().toISOString());
+      return {
+        id: String(candidate.id),
+        intentId: String(candidate.intentId),
+        label: String(candidate.label),
+        userDefined: Boolean(candidate.userDefined),
+        priority: typeof candidate.priority === 'number' ? candidate.priority : 0,
+        active: candidate.active ?? true,
+        notes: typeof candidate.notes === 'string' ? candidate.notes : undefined,
+        createdAt,
+        updatedAt: String(candidate.updatedAt ?? createdAt)
+      } satisfies StoredFocusArea;
+    })
+    .filter(Boolean) as StoredFocusArea[];
+};
+
+const sanitizeSupportItems = (value: unknown): StoredSupportItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<StoredSupportItem>;
+      if (!candidate.id || !candidate.focusAreaId || !candidate.text) return null;
+      const createdAt = String(candidate.createdAt ?? new Date().toISOString());
+      const status = candidate.status === 'paused' || candidate.status === 'retired' ? candidate.status : 'active';
+      const active = status === 'active';
+      return {
+        id: String(candidate.id),
+        focusAreaId: String(candidate.focusAreaId),
+        type: VALID_SUPPORT_ITEM_TYPES.includes(candidate.type as SupportItemType)
+          ? candidate.type as SupportItemType
+          : 'planning',
+        text: String(candidate.text),
+        frequency: VALID_SUPPORT_ITEM_FREQUENCIES.includes(candidate.frequency as SupportItemFrequency)
+          ? candidate.frequency as SupportItemFrequency
+          : undefined,
+        active,
+        whyThisExists: typeof candidate.whyThisExists === 'string' ? candidate.whyThisExists : undefined,
+        source: candidate.source === 'imported' || candidate.source === 'system' || candidate.source === 'suggested' ? candidate.source : 'user',
+        effectivenessSignal: typeof candidate.effectivenessSignal === 'number' ? candidate.effectivenessSignal : undefined,
+        status,
+        createdAt,
+        updatedAt: String(candidate.updatedAt ?? createdAt)
+      } satisfies StoredSupportItem;
+    })
+    .filter(Boolean) as StoredSupportItem[];
+};
+
+const sanitizeDailyMoments = (value: unknown): StoredDailyMoment[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<StoredDailyMoment>;
+      if (!candidate.id || !candidate.timestamp || !candidate.type) return null;
+      const type = VALID_DAILY_MOMENT_TYPES.includes(candidate.type as DailyMomentType)
+        ? candidate.type as DailyMomentType
+        : null;
+      if (!type) return null;
+      return {
+        id: String(candidate.id),
+        timestamp: String(candidate.timestamp),
+        focusAreaId: typeof candidate.focusAreaId === 'string' ? candidate.focusAreaId : undefined,
+        type,
+        text: typeof candidate.text === 'string' ? candidate.text : undefined,
+        frictionLevel: candidate.frictionLevel,
+        helpfulnessSignal: candidate.helpfulnessSignal,
+        source: candidate.source === 'system' ? 'system' : 'user',
+        createdAt: String(candidate.createdAt ?? candidate.timestamp)
+      } satisfies StoredDailyMoment;
+    })
+    .filter(Boolean) as StoredDailyMoment[];
+};
+
+const sanitizeGrowthReflections = (value: unknown): StoredGrowthReflection[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<StoredGrowthReflection>;
+      if (!candidate.id || !candidate.text) return null;
+      return {
+        id: String(candidate.id),
+        text: String(candidate.text),
+        source: candidate.source === 'suggested' || candidate.source === 'inferred' ? candidate.source : 'user',
+        confirmedByUser: Boolean(candidate.confirmedByUser),
+        relatedFocusAreaIds: Array.isArray(candidate.relatedFocusAreaIds)
+          ? candidate.relatedFocusAreaIds.map((entry: unknown) => String(entry))
+          : [],
+        confidence: typeof candidate.confidence === 'number' ? candidate.confidence : undefined,
+        createdAt: String(candidate.createdAt ?? new Date().toISOString())
+      } satisfies StoredGrowthReflection;
+    })
+    .filter(Boolean) as StoredGrowthReflection[];
+};
+
+const sanitizePatterns = (value: unknown): Pattern[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<Pattern>;
+      if (!candidate.id || !candidate.label || !candidate.description) return null;
+      return {
+        id: String(candidate.id),
+        label: String(candidate.label),
+        description: String(candidate.description),
+        confidence: typeof candidate.confidence === 'number' ? candidate.confidence : 0,
+        confirmedByUser: Boolean(candidate.confirmedByUser),
+        supportingMomentIds: Array.isArray(candidate.supportingMomentIds)
+          ? candidate.supportingMomentIds.map((entry: unknown) => String(entry))
+          : [],
+        supportingReflectionIds: Array.isArray(candidate.supportingReflectionIds)
+          ? candidate.supportingReflectionIds.map((entry: unknown) => String(entry))
+          : [],
+        actionability: typeof candidate.actionability === 'number' ? candidate.actionability : undefined
+      } satisfies Pattern;
+    })
+    .filter(Boolean) as Pattern[];
+};
+
+const sanitizeExperiments = (value: unknown): Experiment[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<Experiment>;
+      if (!candidate.id || !candidate.focusAreaId || !candidate.text || !candidate.startDate) return null;
+      return {
+        id: String(candidate.id),
+        focusAreaId: String(candidate.focusAreaId),
+        text: String(candidate.text),
+        startDate: String(candidate.startDate),
+        endDate: typeof candidate.endDate === 'string' ? candidate.endDate : undefined,
+        linkedPatternId: typeof candidate.linkedPatternId === 'string' ? candidate.linkedPatternId : undefined,
+        outcome: candidate.outcome === 'helped' || candidate.outcome === 'mixed' || candidate.outcome === 'did_not_help'
+          ? candidate.outcome
+          : undefined,
+        userRating: typeof candidate.userRating === 'number' ? candidate.userRating : undefined,
+        notes: typeof candidate.notes === 'string' ? candidate.notes : undefined
+      } satisfies Experiment;
+    })
+    .filter(Boolean) as Experiment[];
+};
+
+const enforceIntentActivityInvariant = (intents: StoredGrowthIntent[]): StoredGrowthIntent[] => {
+  let hasActive = false;
+  return intents.map((intent) => {
+    if (intent.status === 'archived') {
+      return { ...intent, active: false };
+    }
+    if (intent.active && !hasActive) {
+      hasActive = true;
+      return intent;
+    }
+    if (intent.active && hasActive) {
+      return { ...intent, active: false };
+    }
+    return intent;
+  });
+};
+
 export const hydrateAppState = (raw: string | null): AppState => {
   if (!raw) return defaultState;
 
@@ -171,6 +387,7 @@ export const hydrateAppState = (raw: string | null): AppState => {
       onboardingChoice === 'buildFramework' || onboardingChoice === 'stayOnTrack' || onboardingChoice === 'startSimple'
         ? onboardingChoice
         : 'startSimple';
+    const growthIntents = enforceIntentActivityInvariant(sanitizeGrowthIntents(parsed.growthIntents));
     return {
       ...parsed,
       onboarding: {
@@ -207,7 +424,14 @@ export const hydrateAppState = (raw: string | null): AppState => {
         allergies: Array.isArray(parsed.foodRules?.allergies)
           ? parsed.foodRules.allergies.map((entry) => String(entry).trim()).filter(Boolean)
           : []
-      }
+      },
+      growthIntents,
+      focusAreas: sanitizeFocusAreas(parsed.focusAreas),
+      supportItems: sanitizeSupportItems(parsed.supportItems),
+      dailyMoments: sanitizeDailyMoments(parsed.dailyMoments),
+      growthReflections: sanitizeGrowthReflections(parsed.growthReflections),
+      patterns: sanitizePatterns(parsed.patterns),
+      experiments: sanitizeExperiments(parsed.experiments)
     };
   } catch {
     return defaultState;
