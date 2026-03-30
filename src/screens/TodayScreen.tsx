@@ -4,6 +4,8 @@ import { ReentryHero } from '../components/brand/ReentryHero';
 import { BrandHeader } from '../components/brand/BrandHeader';
 import { useStore } from '../state/AppStoreContext';
 import { supportTone, todayMode, todayNextStepFromStatedIntent, type GrowthIntentInput } from '../state/growthIntent';
+import { Card } from '../components/Card';
+import { SupportFrameworkSurface } from '../components/grow/SupportFrameworkSurface';
 
 type StretchGoal = {
   id: string;
@@ -21,7 +23,7 @@ type ContextChip = {
 };
 
 export const TodayScreen = () => {
-  const { state, addJournalEntry, addReturnMoment, saveTodaySuccess } = useStore();
+  const { state, addJournalEntry, addReturnMoment, saveTodaySuccess, setSupportItemStatus, updateSupportItemText } = useStore();
   const MIN_HISTORY_FOR_PATTERN_COPY = 6;
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const growthIntentInput = useMemo<GrowthIntentInput>(() => ({
@@ -38,6 +40,7 @@ export const TodayScreen = () => {
   const [expandedStretchId, setExpandedStretchId] = useState<string | null>(null);
   const [tonightNoteDraft, setTonightNoteDraft] = useState('');
   const [inlineMessage, setInlineMessage] = useState('');
+  const [frameworkMessage, setFrameworkMessage] = useState('');
   const [todaySuccessMessage, setTodaySuccessMessage] = useState('');
   const [resetWalkSecondsRemaining, setResetWalkSecondsRemaining] = useState(0);
 
@@ -53,6 +56,22 @@ export const TodayScreen = () => {
   const hour = new Date().getHours();
   const timeOfDayHint = hour < 12 ? 'this morning' : hour < 18 ? 'this afternoon' : 'tonight';
   const tone = supportTone(state.onboarding.supportTier);
+  const activeIntent = state.growthIntents.find((intent) => intent.active && intent.status === 'active');
+  const activeFocusAreas = useMemo(
+    () => state.focusAreas
+      .filter((focusArea) => focusArea.active && (!activeIntent || focusArea.intentId === activeIntent.id))
+      .sort((left, right) => left.priority - right.priority),
+    [activeIntent, state.focusAreas]
+  );
+  const activeFocusAreaIds = new Set(activeFocusAreas.map((focusArea) => focusArea.id));
+  const relatedSupportItems = useMemo(
+    () => state.supportItems.filter((supportItem) => activeFocusAreaIds.has(supportItem.focusAreaId)),
+    [state.supportItems, activeFocusAreaIds]
+  );
+  const focusAreaById = useMemo(
+    () => new Map(activeFocusAreas.map((focusArea) => [focusArea.id, focusArea])),
+    [activeFocusAreas]
+  );
   const usageHistoryCount = state.returnMoments.length + state.journalEntries.length + state.weeklyReflections.length + state.mealLogs.length;
   const hasPatternHistory = usageHistoryCount >= MIN_HISTORY_FOR_PATTERN_COPY;
   const hasExplicitIntent = Boolean(
@@ -375,6 +394,34 @@ export const TodayScreen = () => {
         </div>
         {inlineMessage ? <p className="panel-copy">{inlineMessage}</p> : null}
       </section>
+
+      {(activeFocusAreas.length || relatedSupportItems.length) ? (
+        <Card title="Your support framework">
+          <SupportFrameworkSurface
+            focusAreas={activeFocusAreas}
+            supportItems={relatedSupportItems}
+            focusAreaById={focusAreaById}
+            onPauseSupport={(supportItemId) => {
+              const result = setSupportItemStatus(supportItemId, 'paused');
+              setFrameworkMessage(result.ok ? 'Support paused.' : result.message);
+            }}
+            onRetireSupport={(supportItemId) => {
+              const result = setSupportItemStatus(supportItemId, 'retired');
+              setFrameworkMessage(result.ok ? 'Support retired.' : result.message);
+            }}
+            onActivateSupport={(supportItemId) => {
+              const result = setSupportItemStatus(supportItemId, 'active');
+              setFrameworkMessage(result.ok ? 'Support is active again.' : result.message);
+            }}
+            onEditSupport={(supportItemId, nextText) => {
+              const result = updateSupportItemText(supportItemId, nextText);
+              setFrameworkMessage(result.ok ? 'Support updated.' : result.message);
+            }}
+            emptySupportMessage="No active supports yet. Keeping this simple is okay."
+          />
+          {frameworkMessage ? <p className="panel-copy">{frameworkMessage}</p> : null}
+        </Card>
+      ) : null}
     </div>
   );
 };

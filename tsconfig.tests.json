@@ -30,6 +30,8 @@
     "tests/safetyState.runtime.test.ts",
     "tests/onboarding.runtime.test.ts",
     "tests/mealLogging.runtime.test.ts",
-    "tests/mealPlanning.runtime.test.ts"
+    "tests/mealPlanning.runtime.test.ts",
+    "src/state/supportSeeding.ts",
+    "tests/supportSeeding.runtime.test.ts"
   ]
 }

@@ -9,6 +9,7 @@ import { canUseMealLogging } from './mealLogSummary';
 import { buildInsightSupportLinks } from './insightProvenance';
 import { buildGoalRefinementSuggestions } from './goalRefinement';
 import { deriveRefinedIntentText, seedFocusAreaLabels } from './onboardingGrow';
+import { buildDeterministicSupportSeeds, removeExistingSeedDuplicates } from './supportSeeding';
 import type { DailyMoment, Reflection as GrowthReflection, SupportItemType } from '../domain/growth/types';
 
 const ACTIVE_MODE_STORAGE_KEY = 'outgrow.activeMode';
@@ -195,6 +196,22 @@ export const useAppStore = () => {
               updated_at: at,
               status: 'active' as const
             };
+        const uniqueSeededSupportItems = removeExistingSeedDuplicates(
+          buildDeterministicSupportSeeds(seededFocusAreas),
+          state.supportItems
+        );
+        const seededSupportItems = uniqueSeededSupportItems.map((seed) => ({
+          id: crypto.randomUUID(),
+          focusAreaId: seed.focusAreaId,
+          type: seed.type,
+          text: seed.text,
+          active: supportItemStatusToActive('active'),
+          status: 'active' as const,
+          source: 'system' as const,
+          whyThisExists: seed.whyThisExists,
+          createdAt: at,
+          updatedAt: at
+        }));
         persist({
           ...state,
           goal: nextGoal,
@@ -217,7 +234,8 @@ export const useAppStore = () => {
               intent.active ? { ...intent, active: false, updatedAt: at } : intent
             )
           ],
-          focusAreas: [...seededFocusAreas, ...state.focusAreas]
+          focusAreas: [...seededFocusAreas, ...state.focusAreas],
+          supportItems: [...seededSupportItems, ...state.supportItems]
         });
         return growSuccess();
       },
@@ -331,6 +349,22 @@ export const useAppStore = () => {
           supportItems: state.supportItems.map((supportItem) =>
             supportItem.id === supportItemId
               ? { ...supportItem, status, active: supportItemStatusToActive(status), updatedAt: at }
+              : supportItem
+          )
+        });
+        return growSuccess();
+      },
+      updateSupportItemText: (supportItemId: string, text: string) => {
+        const trimmedText = text.trim();
+        if (!trimmedText) return growFailure('Write a short support item before saving.');
+        const exists = state.supportItems.some((supportItem) => supportItem.id === supportItemId);
+        if (!exists) return growFailure('Support item not found.');
+        const at = nowIso();
+        persist({
+          ...state,
+          supportItems: state.supportItems.map((supportItem) =>
+            supportItem.id === supportItemId
+              ? { ...supportItem, text: trimmedText, updatedAt: at }
               : supportItem
           )
         });
