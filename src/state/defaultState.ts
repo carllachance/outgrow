@@ -54,5 +54,12 @@ export const defaultState: AppState = {
     standingOrders: [],
     ingredientExclusions: [],
     allergies: []
-  }
+  },
+  growthIntents: [],
+  focusAreas: [],
+  supportItems: [],
+  dailyMoments: [],
+  growthReflections: [],
+  patterns: [],
+  experiments: []
 };

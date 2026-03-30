@@ -189,6 +189,33 @@ export interface PlanItem {
   updated_at: string;
 }
 
+export type GrowthIntentStatus = 'active' | 'archived';
+
+export type StoredGrowthIntent = import('./domain/growth/types').GrowthIntent & {
+  status: GrowthIntentStatus;
+};
+
+export type SupportItemStatus = 'active' | 'paused' | 'retired';
+
+export type StoredSupportItem = import('./domain/growth/types').SupportItem & {
+  status: SupportItemStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StoredFocusArea = import('./domain/growth/types').FocusArea & {
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StoredDailyMoment = import('./domain/growth/types').DailyMoment & {
+  createdAt: string;
+};
+
+export type StoredGrowthReflection = import('./domain/growth/types').Reflection & {
+  createdAt: string;
+};
+
 export interface AppState {
   profile: UserProfile;
   goal: Goal | null;
@@ -207,6 +234,13 @@ export interface AppState {
   insightSupportLinks: InsightSupportLink[];
   safety: SafetyState;
   foodRules: FoodRulesState;
+  growthIntents: StoredGrowthIntent[];
+  focusAreas: StoredFocusArea[];
+  supportItems: StoredSupportItem[];
+  dailyMoments: StoredDailyMoment[];
+  growthReflections: StoredGrowthReflection[];
+  patterns: import('./domain/growth/types').Pattern[];
+  experiments: import('./domain/growth/types').Experiment[];
 }
 
 export type AppMode = 'live' | 'demo';

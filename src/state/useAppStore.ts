@@ -8,6 +8,7 @@ import { hydrateAppState } from './hydrateState';
 import { canUseMealLogging } from './mealLogSummary';
 import { buildInsightSupportLinks } from './insightProvenance';
 import { buildGoalRefinementSuggestions } from './goalRefinement';
+import type { DailyMoment, Reflection as GrowthReflection, SupportItemType } from '../domain/growth/types';
 
 const ACTIVE_MODE_STORAGE_KEY = 'outgrow.activeMode';
 const LIVE_PROFILE_STORAGE_KEY = 'outgrow.profile.live';
@@ -45,6 +46,10 @@ const readStorage = (): RootAppState => {
 };
 
 const nowIso = () => new Date().toISOString();
+const supportItemStatusToActive = (status: AppState['supportItems'][number]['status']) => status === 'active';
+type GrowMutationResult = { ok: true } | { ok: false; message: string };
+const growSuccess = (): GrowMutationResult => ({ ok: true });
+const growFailure = (message: string): GrowMutationResult => ({ ok: false, message });
 
 export const useAppStore = () => {
   const [rootState, setRootState] = useState<RootAppState>(() => readStorage());
@@ -126,6 +131,190 @@ export const useAppStore = () => {
       },
       updateOnboarding: (partial: Partial<AppState['onboarding']>) => {
         persist({ ...state, onboarding: { ...state.onboarding, ...partial } });
+      },
+      createGrowthIntent: (rawText: string, refinedText?: string) => {
+        const trimmedRawText = rawText.trim();
+        if (!trimmedRawText) return growFailure('Write what you are working toward before saving.');
+        const at = nowIso();
+        // Intent semantics:
+        // - status: archived => retired from active use
+        // - active: currently selected intent in play
+        // Multiple non-archived intents can exist, but only one is active at a time.
+        const nextIntent = {
+          id: crypto.randomUUID(),
+          rawText: trimmedRawText,
+          refinedText: refinedText?.trim() || undefined,
+          active: true,
+          status: 'active' as const,
+          createdAt: at,
+          updatedAt: at
+        };
+        persist({
+          ...state,
+          growthIntents: [
+            nextIntent,
+            ...state.growthIntents.map((intent) =>
+              intent.active ? { ...intent, active: false, updatedAt: at } : intent
+            )
+          ]
+        });
+        return growSuccess();
+      },
+      updateGrowthIntent: (intentId: string, partial: Partial<Pick<AppState['growthIntents'][number], 'rawText' | 'refinedText' | 'importanceReason' | 'successDefinition' | 'confidenceLevel'>>) => {
+        const exists = state.growthIntents.some((intent) => intent.id === intentId);
+        if (!exists) return growFailure('Growth intent not found.');
+        const at = nowIso();
+        const nextIntents = state.growthIntents.map((intent) => {
+          if (intent.id !== intentId) return intent;
+          const rawText = partial.rawText?.trim() ?? intent.rawText;
+          return {
+            ...intent,
+            rawText: rawText || intent.rawText,
+            refinedText: partial.refinedText?.trim() || (partial.refinedText === '' ? undefined : intent.refinedText),
+            importanceReason: partial.importanceReason?.trim() || (partial.importanceReason === '' ? undefined : intent.importanceReason),
+            successDefinition: partial.successDefinition?.trim() || (partial.successDefinition === '' ? undefined : intent.successDefinition),
+            confidenceLevel: typeof partial.confidenceLevel === 'number' ? partial.confidenceLevel : intent.confidenceLevel,
+            updatedAt: at
+          };
+        });
+        persist({ ...state, growthIntents: nextIntents });
+        return growSuccess();
+      },
+      activateGrowthIntent: (intentId: string) => {
+        const exists = state.growthIntents.some((intent) => intent.id === intentId);
+        if (!exists) return growFailure('Growth intent not found.');
+        const at = nowIso();
+        persist({
+          ...state,
+          growthIntents: state.growthIntents.map((intent) => ({
+            ...intent,
+            active: intent.id === intentId,
+            status: intent.id === intentId ? 'active' : intent.status,
+            updatedAt: intent.id === intentId || intent.active ? at : intent.updatedAt
+          }))
+        });
+        return growSuccess();
+      },
+      archiveGrowthIntent: (intentId: string) => {
+        const exists = state.growthIntents.some((intent) => intent.id === intentId);
+        if (!exists) return growFailure('Growth intent not found.');
+        const at = nowIso();
+        persist({
+          ...state,
+          growthIntents: state.growthIntents.map((intent) =>
+            intent.id === intentId
+              ? { ...intent, active: false, status: 'archived', updatedAt: at }
+              : intent
+          )
+        });
+        return growSuccess();
+      },
+      addFocusArea: (intentId: string, label: string, notes?: string) => {
+        const trimmedLabel = label.trim();
+        if (!trimmedLabel) return growFailure('Add a short focus area label before saving.');
+        const intentExists = state.growthIntents.some((intent) => intent.id === intentId);
+        if (!intentExists) return growFailure('Save a growth intent before adding focus areas.');
+        const at = nowIso();
+        const maxPriority = state.focusAreas
+          .filter((focusArea) => focusArea.intentId === intentId)
+          .reduce((highest, focusArea) => Math.max(highest, focusArea.priority), 0);
+        const nextFocusArea = {
+          id: crypto.randomUUID(),
+          intentId,
+          label: trimmedLabel,
+          userDefined: true,
+          priority: maxPriority + 1,
+          active: true,
+          notes: notes?.trim() || undefined,
+          createdAt: at,
+          updatedAt: at
+        };
+        persist({ ...state, focusAreas: [nextFocusArea, ...state.focusAreas] });
+        return growSuccess();
+      },
+      addSupportItem: (focusAreaId: string, text: string, type: SupportItemType = 'planning', whyThisExists?: string) => {
+        const trimmedText = text.trim();
+        if (!trimmedText) return growFailure('Write a support item before adding.');
+        const focusAreaExists = state.focusAreas.some((focusArea) => focusArea.id === focusAreaId);
+        if (!focusAreaExists) return growFailure('Add a focus area before creating supports.');
+        const at = nowIso();
+        persist({
+          ...state,
+          supportItems: [
+            {
+              id: crypto.randomUUID(),
+              focusAreaId,
+              type,
+              text: trimmedText,
+              active: supportItemStatusToActive('active'),
+              status: 'active',
+              source: 'user',
+              whyThisExists: whyThisExists?.trim() || undefined,
+              createdAt: at,
+              updatedAt: at
+            },
+            ...state.supportItems
+          ]
+        });
+        return growSuccess();
+      },
+      setSupportItemStatus: (supportItemId: string, status: AppState['supportItems'][number]['status']) => {
+        const exists = state.supportItems.some((supportItem) => supportItem.id === supportItemId);
+        if (!exists) return growFailure('Support item not found.');
+        const at = nowIso();
+        // Support item semantics:
+        // - status is the source of truth
+        // - active is a mirrored persistence flag derived from status
+        persist({
+          ...state,
+          supportItems: state.supportItems.map((supportItem) =>
+            supportItem.id === supportItemId
+              ? { ...supportItem, status, active: supportItemStatusToActive(status), updatedAt: at }
+              : supportItem
+          )
+        });
+        return growSuccess();
+      },
+      addDailyMoment: (moment: Omit<DailyMoment, 'id' | 'timestamp'> & { timestamp?: string }) => {
+        const timestamp = moment.timestamp ?? nowIso();
+        persist({
+          ...state,
+          dailyMoments: [
+            {
+              id: crypto.randomUUID(),
+              timestamp,
+              type: moment.type,
+              source: moment.source,
+              focusAreaId: moment.focusAreaId,
+              text: moment.text?.trim() || undefined,
+              frictionLevel: moment.frictionLevel,
+              helpfulnessSignal: moment.helpfulnessSignal,
+              createdAt: nowIso()
+            },
+            ...state.dailyMoments
+          ]
+        });
+        return growSuccess();
+      },
+      addGrowthReflection: (reflection: Omit<GrowthReflection, 'id'>) => {
+        const trimmedText = reflection.text.trim();
+        if (!trimmedText) return growFailure('Write a reflection before saving.');
+        persist({
+          ...state,
+          growthReflections: [
+            {
+              id: crypto.randomUUID(),
+              text: trimmedText,
+              source: reflection.source,
+              confirmedByUser: reflection.confirmedByUser,
+              relatedFocusAreaIds: reflection.relatedFocusAreaIds,
+              confidence: reflection.confidence,
+              createdAt: nowIso()
+            },
+            ...state.growthReflections
+          ]
+        });
+        return growSuccess();
       },
       setGoalText: (goalText: string, revisionSource: GoalRevisionSource = 'user_edit') => {
         const trimmedGoalText = goalText.trim();
