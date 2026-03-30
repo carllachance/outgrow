@@ -1,12 +1,263 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Outgrow</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outgrow — Product Teaser</title>
+  <style>
+    :root{
+      --bg:#0f1013;
+      --film:#13141a;
+      --panel:#1a1c22;
+      --text:#f5f3ee;
+      --muted:#beb7a8;
+      --line:rgba(255,255,255,.09);
+      --mint:#8fb9a8;
+      --amber:#d7a469;
+      --indigo:#7e89cb;
+      --shadow:0 26px 80px rgba(0,0,0,.36);
+      --duration:28s;
+      --scene:7s;
+    }
+
+    *{box-sizing:border-box}
+    html,body{
+      width:100%;height:100%;margin:0;overflow:hidden;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(70rem 40rem at 10% 0%, rgba(126,137,203,.12), transparent 60%),
+        radial-gradient(60rem 34rem at 100% 0%, rgba(143,185,168,.12), transparent 58%),
+        linear-gradient(180deg,#0f1013,#0b0c10);
+    }
+
+    .stage{width:100%;height:100%;display:grid;place-items:center;padding:28px}
+    .film{
+      width:min(1280px,96vw);aspect-ratio:16/9;position:relative;overflow:hidden;
+      border-radius:30px;border:1px solid var(--line);box-shadow:var(--shadow);
+      background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,0)),var(--film);
+    }
+
+    .brandbar{
+      position:absolute;inset:0 0 auto 0;padding:16px 22px;z-index:20;
+      display:flex;justify-content:space-between;align-items:center;
+      font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);
+      background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,0));
+    }
+    .branddot{width:7px;height:7px;border-radius:999px;display:inline-block;margin-right:8px;background:var(--mint);box-shadow:0 0 16px rgba(143,185,168,.6)}
+
+    .scene{
+      position:absolute;inset:0;padding:86px 30px 84px;opacity:0;transform:translateY(12px) scale(1.01);
+      animation:sceneCycle var(--duration) linear infinite;
+    }
+    .scene.s1{animation-delay:0s}
+    .scene.s2{animation-delay:calc(-1 * var(--scene))}
+    .scene.s3{animation-delay:calc(-2 * var(--scene))}
+    .scene.s4{animation-delay:calc(-3 * var(--scene))}
+
+    @keyframes sceneCycle{
+      0%,23%{opacity:1;transform:translateY(0) scale(1)}
+      28%,100%{opacity:0;transform:translateY(-8px) scale(1.008)}
+    }
+
+    .left{position:absolute;left:42px;top:124px;width:430px;z-index:4}
+    .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:14px}
+    h1{margin:0 0 16px;font-size:52px;line-height:1.02;letter-spacing:-.05em}
+    .body{font-size:17px;line-height:1.48;color:var(--muted);max-width:400px}
+
+    .phone{
+      position:absolute;right:66px;top:92px;width:374px;height:720px;
+      border-radius:36px;border:1px solid rgba(255,255,255,.11);overflow:hidden;
+      background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.008)),linear-gradient(180deg,#1a1b22,#14151b);
+      box-shadow:0 20px 56px rgba(0,0,0,.4);
+    }
+    .phone:before{content:"";position:absolute;top:10px;left:50%;transform:translateX(-50%);width:122px;height:18px;border-radius:0 0 14px 14px;background:rgba(0,0,0,.4)}
+    .status{position:absolute;inset:18px 18px auto 18px;display:flex;justify-content:space-between;font-size:12px;color:#90897d}
+    .phone-inner{position:absolute;inset:0;padding:46px 18px 18px}
+    .card{height:100%;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));padding:20px}
+
+    .progress{display:flex;gap:7px;margin-bottom:16px}.progress span{height:5px;flex:1;border-radius:999px;background:rgba(255,255,255,.08)}.progress span:first-child{background:linear-gradient(90deg,var(--mint),rgba(143,185,168,.35))}
+    .kicker{font-size:12px;color:var(--muted)}
+    .prompt{margin-top:7px;font-size:30px;line-height:1.12;letter-spacing:-.03em;font-weight:620}
+    .input{margin-top:16px;min-height:136px;padding:18px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+    .typing-wrap{position:relative;min-height:92px}
+    .phrase{position:absolute;opacity:0;font-size:28px;line-height:1.2;letter-spacing:-.03em;font-weight:560;white-space:nowrap;overflow:hidden;animation-duration:var(--scene);animation-timing-function:linear;animation-iteration-count:infinite}
+    .p1{animation-name:p1}.p2{animation-name:p2}.p3{animation-name:p3}.p4{animation-name:p4}
+    @keyframes p1{0%,5%{opacity:1;width:0}22%{opacity:1;width:26ch}38%{opacity:1;width:26ch}46%{opacity:0;width:0}100%{opacity:0;width:0}}
+    @keyframes p2{0%,28%{opacity:0;width:0}33%{opacity:1;width:0}52%{opacity:1;width:34ch}66%{opacity:1;width:34ch}74%{opacity:0;width:0}100%{opacity:0;width:0}}
+    @keyframes p3{0%,54%{opacity:0;width:0}59%{opacity:1;width:0}76%{opacity:1;width:28ch}86%{opacity:1;width:28ch}94%{opacity:0;width:0}100%{opacity:0;width:0}}
+    @keyframes p4{0%,78%{opacity:0;width:0}83%{opacity:1;width:0}94%{opacity:1;width:30ch}100%{opacity:1;width:30ch}}
+    .cursor{display:inline-block;width:2px;height:1.06em;background:var(--amber);vertical-align:-.12em;animation:blink 1s steps(1) infinite;margin-left:4px}
+    @keyframes blink{50%{opacity:0}}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .chip{font-size:12px;padding:8px 10px;border-radius:999px;color:var(--muted);border:1px solid var(--line);background:rgba(255,255,255,.02)}
+
+    .panel-wrap{position:absolute;right:28px;top:94px;width:730px;height:710px}
+    .grid{display:grid;grid-template-columns:1.17fr .83fr;gap:16px;height:100%}
+    .stack{display:flex;flex-direction:column;gap:14px}
+    .big,.mini,.today,.side{border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015))}
+    .big{padding:20px}
+    .big h3{margin:0 0 12px;font-size:27px;line-height:1.14;letter-spacing:-.03em}
+    .rows{display:grid;gap:10px}
+    .row{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.016)}
+    .label{font-size:15px;font-weight:560}.note{font-size:13px;line-height:1.35;color:var(--muted)}
+    .pill{align-self:flex-start;font-size:11px;padding:7px 9px;border-radius:999px;border:1px solid rgba(126,137,203,.35);background:rgba(126,137,203,.14);color:#d9deff}
+    .mini{padding:16px}
+    .mini h4{margin:0 0 8px;font-size:17px}.mini p{margin:0;font-size:14px;line-height:1.4;color:var(--muted)}
+
+    .app{position:absolute;right:22px;top:94px;width:760px;height:710px;display:grid;grid-template-columns:1fr 390px;gap:16px}
+    .today{padding:20px;display:flex;flex-direction:column;gap:14px}
+    .today h4{margin:0;font-size:27px;letter-spacing:-.03em}
+    .today p{margin:0;color:var(--muted);font-size:14px}
+    .goal{padding:14px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.018)}
+    .goal .small{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#9a9285;margin-bottom:8px}
+    .goal .strong{font-size:21px;line-height:1.18;letter-spacing:-.03em}
+    .opt{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.016)}
+    .opt.primary{background:linear-gradient(180deg,rgba(143,185,168,.14),rgba(143,185,168,.06));border-color:rgba(143,185,168,.3)}
+    .top{font-size:15px;font-weight:560}.sub{font-size:13px;line-height:1.35;color:var(--muted)}
+    .tag{font-size:11px;padding:8px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;height:fit-content}
+
+    .side{padding:16px;display:flex;flex-direction:column;gap:12px}
+    .media{height:182px;border-radius:16px;border:1px solid var(--line);background:radial-gradient(circle at 30% 22%,rgba(255,255,255,.14),transparent 28%),linear-gradient(135deg,rgba(215,164,105,.23),rgba(143,185,168,.17),rgba(126,137,203,.16)),linear-gradient(180deg,#2a251f,#191a1f)}
+    .side-title{font-size:20px;letter-spacing:-.03em;font-weight:600}
+    .side-copy{font-size:14px;line-height:1.45;color:var(--muted)}
+    .chips-2{display:flex;flex-wrap:wrap;gap:7px}
+
+    .close{height:100%;display:grid;place-items:center;padding:34px;text-align:center}
+    .close-card{width:min(850px,84%);padding:34px 34px 28px;border-radius:28px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015)),linear-gradient(180deg,#14161c,#101118)}
+    .logo{font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--mint);margin-bottom:14px}
+    .headline{margin:0 0 14px;font-size:58px;line-height:1.02;letter-spacing:-.055em}
+    .copy{margin:0 auto 16px;max-width:680px;font-size:19px;line-height:1.45;color:var(--muted)}
+    .pointline{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+    .pointline span{font-size:12px;padding:8px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02);color:var(--muted)}
+    .cta{display:inline-block;padding:12px 16px;border-radius:999px;border:1px solid rgba(143,185,168,.32);background:linear-gradient(180deg,rgba(143,185,168,.15),rgba(143,185,168,.07));font-size:14px;color:#eff9f5}
+
+    .caption{position:absolute;inset:auto 30px 24px 30px;display:flex;justify-content:space-between;align-items:flex-end;gap:18px;z-index:25;opacity:0;animation:capCycle var(--duration) linear infinite}
+    .caption.t1{animation-delay:0s}.caption.t2{animation-delay:calc(-1 * var(--scene))}.caption.t3{animation-delay:calc(-2 * var(--scene))}.caption.t4{animation-delay:calc(-3 * var(--scene))}
+    .cap-title{font-size:38px;line-height:1.06;letter-spacing:-.03em;font-weight:640;max-width:730px}
+    .cap-sub{font-size:14px;line-height:1.45;color:var(--muted);max-width:340px}
+    @keyframes capCycle{0%,23%{opacity:1}28%,100%{opacity:0}}
+
+    .noise{position:absolute;inset:0;pointer-events:none;opacity:.05;background-image:radial-gradient(circle at 20% 20%,rgba(255,255,255,.6) 0 .7px,transparent .8px),radial-gradient(circle at 80% 40%,rgba(255,255,255,.45) 0 .7px,transparent .8px);background-size:19px 19px,24px 24px}
+
+    @media (max-width:1100px){
+      .left{left:28px;top:106px;width:332px} h1{font-size:42px}.body{font-size:15px}
+      .phone{right:26px;width:340px;height:680px}
+      .cap-title{font-size:32px}.headline{font-size:46px}
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <main class="film">
+      <header class="brandbar">
+        <div><span class="branddot"></span>Outgrow</div>
+        <div>Goal-first support for real life</div>
+      </header>
+
+      <section class="scene s1">
+        <div class="left">
+          <div class="eyebrow">Onboarding, reframed</div>
+          <h1>Start with what the person actually said.</h1>
+          <p class="body">Outgrow opens with one line: “What do you want to outgrow?” That answer becomes the anchor for everything that follows.</p>
+        </div>
+
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>● ● ●</span></div>
+          <div class="phone-inner">
+            <div class="card">
+              <div class="progress"><span></span><span></span><span></span></div>
+              <div class="kicker">Step 1 of 3</div>
+              <div class="prompt">What do you want to outgrow?</div>
+              <div class="input">
+                <div class="typing-wrap">
+                  <div class="phrase p1">skipping lunch, then overeating late</div>
+                  <div class="phrase p2">all-or-nothing weeks that collapse by Thursday</div>
+                  <div class="phrase p3">starting every day already behind</div>
+                  <div class="phrase p4">tracking everything just to feel in control</div>
+                  <span class="cursor"></span>
+                </div>
+              </div>
+              <div class="chips">
+                <span class="chip">Lunch</span><span class="chip">Sensible snacks</span><span class="chip">Movement</span><span class="chip">Sleep</span><span class="chip">Routines</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene s2">
+        <div class="left">
+          <div class="eyebrow">Support model</div>
+          <h1>The plan widens around the goal.</h1>
+          <p class="body">Not a narrow food tracker. Outgrow can add the adjacent supports that make change hold: meals, snacks, movement, sleep, and daily structure.</p>
+        </div>
+
+        <div class="panel-wrap">
+          <div class="grid">
+            <div class="big">
+              <h3>Build a realistic framework?</h3>
+              <div class="rows">
+                <div class="row"><div><div class="label">Lunch + snacks</div><div class="note">Keep energy steady so evenings are easier.</div></div><span class="pill">Core</span></div>
+                <div class="row"><div><div class="label">Movement</div><div class="note">Short prompts when they directly support the goal.</div></div><span class="pill">Optional</span></div>
+                <div class="row"><div><div class="label">Sleep rhythm</div><div class="note">Small guardrails if late nights are part of the loop.</div></div><span class="pill">Useful</span></div>
+                <div class="row"><div><div class="label">Goal revisions</div><div class="note">Easy to adjust wording, scope, and plan over time.</div></div><span class="pill">Always editable</span></div>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="mini"><h4>Minimal by design</h4><p>Start with only what helps now. Add structure as the user learns what works.</p></div>
+              <div class="mini"><h4>Calm product behavior</h4><p>No filler coaching. Suggestions appear when they’re concrete, then get out of the way.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene s3">
+        <div class="left">
+          <div class="eyebrow">Daily use</div>
+          <h1>A usable day view, not a lecture.</h1>
+          <p class="body">The surface keeps the long goal visible and offers one clear next step. Enough structure to help; enough space to stay human.</p>
+        </div>
+
+        <div class="app">
+          <div class="today">
+            <h4>Today</h4>
+            <p>One meaningful next step.</p>
+            <div class="goal"><div class="small">What you want to outgrow</div><div class="strong">Skipping lunch, then feeling out of control later.</div></div>
+            <div class="opt primary"><div><div class="top">Pack one reliable lunch</div><div class="sub">Simple, repeatable, and tied to the goal.</div></div><span class="tag">Doable</span></div>
+            <div class="opt"><div><div class="top">10-minute reset walk</div><div class="sub">Break the afternoon spiral before dinner.</div></div><span class="tag">10:00</span></div>
+            <div class="opt"><div><div class="top">Set up tonight’s first action</div><div class="sub">Reduce friction for evening-you.</div></div><span class="tag">2 min</span></div>
+          </div>
+          <aside class="side">
+            <div class="media"></div>
+            <div class="side-title">Dinner shortlist</div>
+            <div class="side-copy">Suggestions fit the current week and the user’s stated goal — practical, not performative.</div>
+            <div class="chips-2"><span class="chip">Use tonight</span><span class="chip">Add to plan</span><span class="chip">Save</span></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="scene s4">
+        <div class="close">
+          <div class="close-card">
+            <div class="logo">Outgrow</div>
+            <h2 class="headline">Your words in. Real support around them.</h2>
+            <p class="copy">Outgrow helps people outgrow what is not working with calm, revisable structure across meals, movement, sleep, and daily rhythm.</p>
+            <div class="pointline">
+              <span>Starts with the user’s own words</span><span>Broad support beyond meals</span><span>Daily surface built for real life</span><span>Structured, revisable, calm</span>
+            </div>
+            <div class="cta">Outgrow — trusted progress, day by day</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="caption t1"><div class="cap-title">A first question people can answer honestly.</div><div class="cap-sub">Strong opening moment, grounded in user language.</div></div>
+      <div class="caption t2"><div class="cap-title">The product broadens support around the real goal.</div><div class="cap-sub">Meals matter. Adjacent habits make change stick.</div></div>
+      <div class="caption t3"><div class="cap-title">Daily use stays practical and calm.</div><div class="cap-sub">One next step, clear context, low friction.</div></div>
+      <div class="caption t4"><div class="cap-title">Outgrow turns intention into a trusted system.</div><div class="cap-sub">Human, structured, revisable — without pressure.</div></div>
+
+      <div class="noise"></div>
+    </main>
+  </div>
+</body>
 </html>
