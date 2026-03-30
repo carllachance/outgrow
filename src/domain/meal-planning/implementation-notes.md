@@ -56,3 +56,7 @@
 3. Add `moveMeal` and `markMealStatus` helpers for schedule edits.
 4. Add a recipe version changelog summary for planned meal diffs.
 5. Add printable card formatting presets (single recipe / batch cook).
+
+## Future scaffolding note (Personal Chef)
+- Reference: `docs/personal-chef-preference-anchors.md` for the confirmed direction on optional meal anchors, pattern confirmation, editable defaults, and trust/tone guardrails.
+- Implementation reminder: confirm observed planning patterns before treating them as defaults.
