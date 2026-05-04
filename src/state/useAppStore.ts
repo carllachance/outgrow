@@ -780,6 +780,51 @@ export const useAppStore = () => {
           )
         });
       },
+      saveOpenLoop: (input: {
+        id?: string;
+        title: string;
+        whyItMatters?: string;
+        nextVisibleStep?: string;
+        resurfaceHint?: string;
+        state: AppState['openLoops'][number]['state'];
+      }) => {
+        const trimmedTitle = input.title.trim();
+        if (!trimmedTitle) return growFailure('Add a short title first.');
+        const at = nowIso();
+        if (input.id) {
+          const exists = state.openLoops.some((loop) => loop.id === input.id);
+          if (!exists) return growFailure('Open loop not found.');
+          persist({
+            ...state,
+            openLoops: state.openLoops.map((loop) => loop.id === input.id
+              ? {
+                  ...loop,
+                  title: trimmedTitle,
+                  whyItMatters: input.whyItMatters?.trim() || undefined,
+                  nextVisibleStep: input.nextVisibleStep?.trim() || undefined,
+                  resurfaceHint: input.resurfaceHint?.trim() || undefined,
+                  state: input.state,
+                  updatedAt: at
+                }
+              : loop)
+          });
+          return growSuccess();
+        }
+        persist({
+          ...state,
+          openLoops: [{
+            id: crypto.randomUUID(),
+            title: trimmedTitle,
+            whyItMatters: input.whyItMatters?.trim() || undefined,
+            nextVisibleStep: input.nextVisibleStep?.trim() || undefined,
+            resurfaceHint: input.resurfaceHint?.trim() || undefined,
+            state: input.state,
+            createdAt: at,
+            updatedAt: at
+          }, ...state.openLoops]
+        });
+        return growSuccess();
+      },
       clearAllData: () => {
         persistRoot({
           activeMode: 'live',

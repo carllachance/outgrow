@@ -23,7 +23,7 @@ type ContextChip = {
 };
 
 export const TodayScreen = () => {
-  const { state, addJournalEntry, addReturnMoment, saveTodaySuccess, setSupportItemStatus, updateSupportItemText } = useStore();
+  const { state, addJournalEntry, addReturnMoment, saveTodaySuccess, saveOpenLoop, setSupportItemStatus, updateSupportItemText } = useStore();
   const MIN_HISTORY_FOR_PATTERN_COPY = 6;
   const isSafetyMode = !state.safety.flags.optimization_enabled;
   const growthIntentInput = useMemo<GrowthIntentInput>(() => ({
@@ -43,6 +43,8 @@ export const TodayScreen = () => {
   const [frameworkMessage, setFrameworkMessage] = useState('');
   const [todaySuccessMessage, setTodaySuccessMessage] = useState('');
   const [resetWalkSecondsRemaining, setResetWalkSecondsRemaining] = useState(0);
+  const [loopMessage, setLoopMessage] = useState('');
+  const [loopCaptureDraft, setLoopCaptureDraft] = useState('');
 
   const todayDateKey = new Date().toISOString().slice(0, 10);
   const savedTodaySuccess = state.todaySuccessByDate[todayDateKey] ?? '';
@@ -114,7 +116,6 @@ export const TodayScreen = () => {
     return suggestions.slice(0, 4);
   }, [growthIntentInput, hasExplicitIntent, hasPatternHistory, hasTimelyContext, recentJournalTheme, recentWin, shouldRenderGuidance, timeOfDayHint, tone]);
 
-
   const contextChips: ContextChip[] = [
     { id: 'low-energy', icon: '◐', label: 'Low energy' },
     { id: 'steady', icon: '●', label: 'Steady' },
@@ -180,6 +181,28 @@ export const TodayScreen = () => {
       setIsEditingTodaySuccess(false);
     }
     return true;
+  };
+
+  const openLoops = state.openLoops.filter((loop) => loop.state !== 'done' && loop.state !== 'dropped');
+  const loopGroups = {
+    needsNextStep: openLoops.filter((loop) => loop.state !== 'waiting' && !loop.nextVisibleStep?.trim()),
+    waitingOnSomeone: openLoops.filter((loop) => loop.state === 'waiting'),
+    worthDoingSoon: openLoops.filter((loop) => loop.state === 'clarified' && loop.nextVisibleStep?.trim())
+  };
+
+  const captureOpenLoop = () => {
+    const trimmedTitle = loopCaptureDraft.trim();
+    if (!trimmedTitle) {
+      setLoopMessage('Write the thing first.');
+      return;
+    }
+    const result = saveOpenLoop({ title: trimmedTitle, state: 'captured' });
+    if (!result.ok) {
+      setLoopMessage(result.message);
+      return;
+    }
+    setLoopCaptureDraft('');
+    setLoopMessage('Saved. You do not have to carry that in your head.');
   };
 
   const saveTonightNote = () => {
@@ -331,6 +354,44 @@ export const TodayScreen = () => {
         {todaySuccessMessage ? <p className="panel-copy panel-copy-support">{todaySuccessMessage}</p> : null}
 
         {isSafetyMode ? <p className="panel-copy">Safety mode is active. Keep today simple and gentle.</p> : null}
+      </section>
+
+      <section className="chapter" aria-labelledby="follow-through-card">
+        <p className="panel-kicker">Follow-through</p>
+        <h3 id="follow-through-card">Today, follow-through means…</h3>
+        <p className="panel-copy">Get one loose thread out of your head, make it smaller, or close it on purpose.</p>
+        <div className="today-inline-note">
+          <label htmlFor="open-loop-capture" className="sr-only">Capture an open loop</label>
+          <textarea
+            id="open-loop-capture"
+            value={loopCaptureDraft}
+            onChange={(event) => {
+              setLoopCaptureDraft(event.target.value);
+              setLoopMessage('');
+            }}
+            placeholder="Something I do not want to lose today"
+            rows={2}
+          />
+          <button type="button" className="action-expand" onClick={captureOpenLoop}>
+            Capture something
+          </button>
+        </div>
+        {loopMessage ? <p className="panel-copy">{loopMessage}</p> : null}
+      </section>
+
+      <section className="chapter" aria-labelledby="loop-review">
+        <p className="panel-kicker">Evening review</p>
+        <h3 id="loop-review">Anything still open?</h3>
+        <p className="panel-copy">These are the things you asked Outgrow not to let disappear.</p>
+        {openLoops.length === 0 ? (
+          <p className="panel-copy">Nothing saved here yet. Add a loose thread when you want help remembering it.</p>
+        ) : (
+          <div className="stack">
+            <p><strong>Needs a next step</strong> · {loopGroups.needsNextStep.length}</p>
+            <p><strong>Waiting on someone</strong> · {loopGroups.waitingOnSomeone.length}</p>
+            <p><strong>Worth doing soon</strong> · {loopGroups.worthDoingSoon.length}</p>
+          </div>
+        )}
       </section>
 
       <section className="chapter today-stretch" aria-label="Optional support">

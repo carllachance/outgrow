@@ -14,7 +14,8 @@ import type {
   StoredGrowthIntent,
   StoredGrowthReflection,
   StoredSupportItem,
-  TimeMode
+  TimeMode,
+  OpenLoop
 } from '../types';
 import type { DailyMomentType, Experiment, Pattern, SupportItemFrequency, SupportItemType } from '../domain/growth/types';
 
@@ -309,6 +310,47 @@ const sanitizeGrowthReflections = (value: unknown): StoredGrowthReflection[] => 
     .filter(Boolean) as StoredGrowthReflection[];
 };
 
+const sanitizeOpenLoops = (value: unknown): OpenLoop[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<OpenLoop> & {
+        why_it_matters?: unknown;
+        next_visible_step?: unknown;
+        resurface_hint?: unknown;
+      };
+      if (!candidate.id || !candidate.title) return null;
+      const state = candidate.state === 'clarified' || candidate.state === 'waiting' || candidate.state === 'done' || candidate.state === 'dropped'
+        ? candidate.state
+        : 'captured';
+      const createdAt = String(candidate.createdAt ?? new Date().toISOString());
+      return {
+        id: String(candidate.id),
+        title: String(candidate.title),
+        whyItMatters: typeof candidate.whyItMatters === 'string'
+          ? candidate.whyItMatters
+          : typeof candidate.why_it_matters === 'string'
+            ? candidate.why_it_matters
+            : undefined,
+        nextVisibleStep: typeof candidate.nextVisibleStep === 'string'
+          ? candidate.nextVisibleStep
+          : typeof candidate.next_visible_step === 'string'
+            ? candidate.next_visible_step
+            : undefined,
+        resurfaceHint: typeof candidate.resurfaceHint === 'string'
+          ? candidate.resurfaceHint
+          : typeof candidate.resurface_hint === 'string'
+            ? candidate.resurface_hint
+            : undefined,
+        state,
+        createdAt,
+        updatedAt: String(candidate.updatedAt ?? createdAt)
+      } satisfies OpenLoop;
+    })
+    .filter(Boolean) as OpenLoop[];
+};
+
 const sanitizePatterns = (value: unknown): Pattern[] => {
   if (!Array.isArray(value)) return [];
   return value
@@ -430,6 +472,7 @@ export const hydrateAppState = (raw: string | null): AppState => {
       supportItems: sanitizeSupportItems(parsed.supportItems),
       dailyMoments: sanitizeDailyMoments(parsed.dailyMoments),
       growthReflections: sanitizeGrowthReflections(parsed.growthReflections),
+      openLoops: sanitizeOpenLoops(parsed.openLoops),
       patterns: sanitizePatterns(parsed.patterns),
       experiments: sanitizeExperiments(parsed.experiments)
     };

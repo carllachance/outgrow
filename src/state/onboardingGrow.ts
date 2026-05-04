@@ -21,7 +21,21 @@ const DOMAIN_KEYWORDS: Array<{ label: string; patterns: RegExp[] }> = [
   { label: 'routine', patterns: [/\broutine(s)?\b/, /\bhabit(s)?\b/, /\bconsisten[ct]\w*\b/] },
   { label: 'presence', patterns: [/\bpresent\b/, /\bmindful\b/, /\bpresence\b/] },
   { label: 'energy', patterns: [/\benergy\b/, /\btired\b/, /\bsluggish\b/, /\bexhausted\b/] },
-  { label: 'after work', patterns: [/\bafter work\b/, /\bend of (the )?day\b/] }
+  { label: 'after work', patterns: [/\bafter work\b/, /\bend of (the )?day\b/] },
+  {
+    label: 'remembering',
+    patterns: [
+      /\bremember(ing)?\b/,
+      /\bkeep track\b/,
+      /\blose track\b/,
+      /\bdropping things\b/,
+      /\bfollow(?:ing)?[ -]?through\b/,
+      /\bfinish(?:ing)?\b/,
+      /\bprocrastinat(?:e|ing|ion)\b/,
+      /\bforget(ting)?\b/,
+      /\bopen loops?\b/
+    ]
+  }
 ];
 
 export interface ClarificationChoice {
@@ -76,8 +90,25 @@ export const buildClarificationPrompt = (rawIntent: string): ClarificationPrompt
     routine: ['routine', 'meals', 'sleep'],
     presence: ['presence', 'after work', 'routine'],
     energy: ['energy', 'sleep', 'meals'],
-    'after work': ['after work', 'presence', 'routine']
+    'after work': ['after work', 'presence', 'routine'],
+    remembering: ['remembering', 'routine', 'reminders']
   };
+  const rememberingPrompt = /\bremember(ing)?\b|\bfollow[ -]?through\b|\bforget(ting)?\b/.test(normalize(rawIntent));
+  if (rememberingPrompt) {
+    return {
+      prompt: 'Where do you feel the friction most often?',
+      helper: 'Pick what feels closest right now. You can change this later.',
+      choices: [
+        { value: 'forgetting small things', label: 'Forgetting small things' },
+        { value: 'starting but not finishing', label: 'Starting but not finishing' },
+        { value: 'avoiding things until urgent', label: 'Avoiding until urgent' },
+        { value: 'losing track when busy', label: 'Losing track when busy' },
+        { value: 'needing better reminders', label: 'Needing better reminders' },
+        { value: 'deciding what matters', label: 'Deciding what matters' }
+      ]
+    };
+  }
+
   const candidateSuggestions = [
     ...existingMatches,
     ...(primaryMatch ? relatedSuggestionsByDomain[primaryMatch] ?? [] : []),
@@ -118,6 +149,9 @@ export const seedFocusAreaLabels = (rawIntent: string, clarificationValue?: stri
 
   if (!seeded.length && /\bbetter\b/.test(normalized)) {
     seeded.push('routine');
+  }
+  if (/(remembering|follow through|follow-through|forget)/.test(normalized)) {
+    seeded.unshift('remembering');
   }
 
   return Array.from(new Set(seeded)).slice(0, 3);
