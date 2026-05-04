@@ -216,6 +216,19 @@ export type StoredGrowthReflection = import('./domain/growth/types').Reflection 
   createdAt: string;
 };
 
+export type OpenLoopState = 'captured' | 'clarified' | 'waiting' | 'done' | 'dropped';
+
+export interface OpenLoop {
+  id: string;
+  title: string;
+  whyItMatters?: string;
+  nextVisibleStep?: string;
+  resurfaceHint?: string;
+  state: OpenLoopState;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppState {
   profile: UserProfile;
   goal: Goal | null;
@@ -239,6 +252,7 @@ export interface AppState {
   supportItems: StoredSupportItem[];
   dailyMoments: StoredDailyMoment[];
   growthReflections: StoredGrowthReflection[];
+  openLoops: OpenLoop[];
   patterns: import('./domain/growth/types').Pattern[];
   experiments: import('./domain/growth/types').Experiment[];
 }

@@ -60,6 +60,7 @@ export const defaultState: AppState = {
   supportItems: [],
   dailyMoments: [],
   growthReflections: [],
+  openLoops: [],
   patterns: [],
   experiments: []
 };
